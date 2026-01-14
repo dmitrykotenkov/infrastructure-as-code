@@ -3,6 +3,14 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Project custom directories
+.known_hosts/
+.logs/
+.debug/
+
+# Project custom files
+.vault.yml
+
 # User-specific files
 *.rsuser
 *.suo
