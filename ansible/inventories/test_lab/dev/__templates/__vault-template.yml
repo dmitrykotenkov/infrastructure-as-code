@@ -1,0 +1,138 @@
+---
+# =============================================================================
+# Common variables
+# =============================================================================
+
+vault__ansible_host__list:
+  node1: "0.0.0.0"
+  node2: "0.0.0.0"
+  node3: "0.0.0.0"
+  node4: "0.0.0.0"
+  node5: "0.0.0.0"
+
+# =============================================================================
+# Bootstrap variables
+# =============================================================================
+
+vault__iac__bootstrap__hostname__list:
+  node1: "hostname"
+  node2: "hostname"
+  node3: "hostname"
+  node4: "hostname"
+  node5: "hostname"
+
+# =============================================================================
+# Initial connection details
+# =============================================================================
+
+vault__initial_ansible_port__list:
+  node1: 0
+  node2: 0
+  node3: 0
+  node4: 0
+  node5: 0
+
+vault__initial_ansible_user__list:
+  node1: "user"
+  node2: "user"
+  node3: "user"
+  node4: "user"
+  node5: "user"
+
+vault__initial_ansible_user_initial_password__list:
+  node1: "initial_password"
+  node2: "initial_password"
+  node3: "initial_password"
+  node4: "initial_password"
+  node5: "initial_password"
+
+vault__initial_ansible_user_initial_ssh_key__list:
+  node1: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    initial_ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node2: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    initial_ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node3: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    initial_ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node4: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    initial_ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node5: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    initial_ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+
+vault__initial_ansible_user_ssh_key__list:
+  node1: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node2: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node3: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node4: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node5: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+
+# =============================================================================
+# Connection variables
+# =============================================================================
+
+vault__ansible_port__list:
+  node1: 0
+  node2: 0
+  node3: 0
+  node4: 0
+  node5: 0
+
+vault__ansible_user__list:
+  node1: "user"
+  node2: "user"
+  node3: "user"
+  node4: "user"
+  node5: "user"
+
+vault__ansible_user_password__list:
+  node1: "password"
+  node2: "password"
+  node3: "password"
+  node4: "password"
+  node5: "password"
+
+vault__ansible_user_ssh_key__list:
+  node1: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node2: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node3: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node4: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----
+  node5: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ssh_key
+    -----END OPENSSH PRIVATE KEY-----

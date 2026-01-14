@@ -1,0 +1,5 @@
+---
+ansible_host: "{{ vault__ansible_host__list[inventory_hostname] }}"
+
+iac__bootstrap__hostname: "{{ vault__iac__bootstrap__hostname__list[inventory_hostname] }}"
+iac__bootstrap__timezone: "{{ iac__common__timezone }}"
