@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# Section 1/1: Validation
+# =============================================================================
+- name: Bootstrap | Validate auth method (1/1)
+  ansible.builtin.assert:
+    that:
+      - >
+        (ansible_password is defined and ansible_ssh_private_key_file is not defined)
+        or
+        (ansible_password is not defined and ansible_ssh_private_key_file is defined)
+    fail_msg: >-
+      Host {{ inventory_hostname }} must define exactly one authentication method:
+      either ansible_password or ansible_ssh_private_key_file.
+  changed_when: false
