@@ -1,5 +1,7 @@
 ---
-ansible_host: "{{ vault__ansible_host__list[inventory_hostname] }}"
+ansible_host: "{{ vault__ansible_host__list.get(inventory_hostname) }}"
+ansible_port: "{{ vault__ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
 
-iac__bootstrap__hostname: "{{ vault__iac__bootstrap__hostname__list[inventory_hostname] }}"
-iac__bootstrap__timezone: "{{ iac__common__timezone }}"
+ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
+
+iac__bootstrap__hostname: "{{ vault__iac__bootstrap__hostname__list.get(inventory_hostname, inventory_hostname) }}"
