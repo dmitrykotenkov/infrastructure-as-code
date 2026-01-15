@@ -3,3 +3,4 @@ _iac__defaults__directory_mode: "0755"
 _iac__defaults__file_mode: "0644"
 _iac__defaults__ssh_directory_mode: "0700"
 _iac__defaults__ssh_file_mode: "0600"
+_iac__defaults__ssh_port: 22
