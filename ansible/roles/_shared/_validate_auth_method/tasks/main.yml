@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Section 1/1: Validation that exactly one authentication method is defined
+# Section 1/2: Validation that exactly one authentication method is defined
 # =============================================================================
 - name: Shared | Validate auth method (1/1)
   ansible.builtin.assert:
@@ -12,5 +12,20 @@
     fail_msg: >-
       Host {{ inventory_hostname }} must define exactly one authentication method:
       either ansible_password or ansible_ssh_private_key_file (from inventory/vault).
+    quiet: true
+  changed_when: false
+
+# =============================================================================
+# Section 2/2: Validation that required connection variables are defined
+# =============================================================================
+- name: Shared | Validate required connection variables
+  ansible.builtin.assert:
+    that:
+      - ansible_host is defined and ansible_host is not none
+      - ansible_port is defined and (ansible_port | int) > 0 and (ansible_port | int) < 65536
+      - ansible_user is defined and ansible_user is not none and (ansible_user | string | length)
+    fail_msg: >-
+      Host {{ inventory_hostname }} is missing required connection variables
+      (ansible_host / ansible_port / ansible_user) or they are invalid.
     quiet: true
   changed_when: false
