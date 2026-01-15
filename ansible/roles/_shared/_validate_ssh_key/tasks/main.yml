@@ -1,0 +1,13 @@
+---
+# =============================================================================
+# Section 1/1: Validation that only SSH key authentication is defined
+# =============================================================================
+- name: Shared | Validate key-only auth (1/1)
+  ansible.builtin.assert:
+    that:
+      - ansible_ssh_private_key_file is defined
+      - ansible_password is not defined
+    fail_msg: >-
+      Key-only policy: ansible_ssh_private_key_file must be set and ansible_password must not be set.
+    quiet: true
+  changed_when: false
