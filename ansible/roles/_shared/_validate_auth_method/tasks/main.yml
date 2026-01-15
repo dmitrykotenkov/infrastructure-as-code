@@ -2,7 +2,7 @@
 # =============================================================================
 # Section 1/2: Validation that exactly one authentication method is defined
 # =============================================================================
-- name: Shared | Validate auth method (1/1)
+- name: Shared | Validate auth method (1/2) - Validate exactly one authentication method is defined
   ansible.builtin.assert:
     that:
       - >
@@ -18,10 +18,10 @@
 # =============================================================================
 # Section 2/2: Validation that required connection variables are defined
 # =============================================================================
-- name: Shared | Validate required connection variables
+- name: Shared | Validate auth method (2/2) - Validate required connection variables are defined
   ansible.builtin.assert:
     that:
-      - ansible_host is defined and ansible_host is not none
+      - ansible_host is defined and ansible_host is not none and (ansible_user | string | length)
       - ansible_port is defined and (ansible_port | int) > 0 and (ansible_port | int) < 65536
       - ansible_user is defined and ansible_user is not none and (ansible_user | string | length)
     fail_msg: >-

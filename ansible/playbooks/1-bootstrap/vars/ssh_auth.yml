@@ -1,0 +1,2 @@
+iac__ansible_ssh_private_key: "{{ vault__ansible_user_ssh_key__list.get(inventory_hostname) }}"
+ansible_password: "{{ omit }}"
