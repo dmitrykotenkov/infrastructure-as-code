@@ -2,7 +2,7 @@
 # =============================================================================
 # Section 1/1: Validation
 # =============================================================================
-- name: Bootstrap | Validate auth method (1/1)
+- name: Shared | Validate auth method (1/1)
   ansible.builtin.assert:
     that:
       - >
