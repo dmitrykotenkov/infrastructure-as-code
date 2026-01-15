@@ -1,1 +1,5 @@
-iac__common__timezone: "{{ iac__common__timezone__default }}"
+iac__common__timezone: "{{ _iac__defaults__timezone }}"
+iac__common__directory_mode: "{{ _iac__defaults__directory_mode }}"
+iac__common__file_mode: "{{ _iac__defaults__file_mode }}"
+iac__common__ssh_directory_mode: "{{ _iac__defaults__ssh_directory_mode }}"
+iac__common__ssh_file_mode: "{{ _iac__defaults__ssh_file_mode }}"
