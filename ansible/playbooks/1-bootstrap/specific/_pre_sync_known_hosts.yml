@@ -1,0 +1,27 @@
+---
+- name: Bootstrap | Sync known_hosts for initial SSH port
+  hosts: bootstrap_targets
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../vars/initial_ssh_auth.yml"
+
+  pre_tasks:
+    - name: Validate auth method 
+      ansible.builtin.include_role:
+        name: _shared/_validate_auth_method
+
+    - name: Ensure SSH private key file if needed
+      ansible.builtin.include_role:
+        name: _shared/_ensure_ssh_key_file
+    
+    - name: Sync known_hosts for initial ansible port
+      ansible.builtin.include_role:
+        name: _shared/_sync-known-hosts
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+  tasks:
+    - name: Verify SSH connectivity
+      ansible.builtin.debug:
+        msg: "Connection established to {{ inventory_hostname }} ({{ ansible_host }})"

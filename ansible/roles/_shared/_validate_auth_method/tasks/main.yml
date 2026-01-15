@@ -21,7 +21,7 @@
 - name: Shared | Validate auth method (2/2) - Validate required connection variables are defined
   ansible.builtin.assert:
     that:
-      - ansible_host is defined and ansible_host is not none and (ansible_user | string | length)
+      - ansible_host is defined and ansible_host is not none and (ansible_host | string | length)
       - ansible_port is defined and (ansible_port | int) > 0 and (ansible_port | int) < 65536
       - ansible_user is defined and ansible_user is not none and (ansible_user | string | length)
     fail_msg: >-

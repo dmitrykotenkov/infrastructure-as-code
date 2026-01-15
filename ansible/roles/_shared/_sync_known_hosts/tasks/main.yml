@@ -160,7 +160,7 @@
   become: false
   ansible.builtin.debug:
     msg:
-      - "✓ known_hosts synced successfully"
+      - "  known_hosts synced successfully"
       - "  Host: {{ __shared__sync_known_hosts__host_ip }}"
       - "  Port: {{ __shared__sync_known_hosts__target_port }}"
       - "  File: {{ __shared__sync_known_hosts__known_hosts_file }}"

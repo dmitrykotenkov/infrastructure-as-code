@@ -134,7 +134,7 @@
   run_once: true
   ansible.builtin.debug:
     msg:
-      - "✓ SSH private key provisioning completed"
+      - "  SSH private key provisioning completed"
       - "  File: {{ iac__common__ansible_ssh_private_key_file }}"
       - "  Mode: {{ iac__common__ansible_ssh_private_key_file_mode }}"
       - "  Directory: {{ iac__common__ansible_ssh_private_key_file_directory }}"
