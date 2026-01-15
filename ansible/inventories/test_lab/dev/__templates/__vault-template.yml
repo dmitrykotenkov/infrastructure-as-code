@@ -46,6 +46,13 @@ vault__initial_ansible_user_initial_password__list:
   node4: "initial_password"
   node5: "initial_password"
 
+vault__initial_ansible_user_password__list:
+  node1: "password"
+  node2: "password"
+  node3: "password"
+  node4: "password"
+  node5: "password"
+
 vault__initial_ansible_user_initial_ssh_key__list:
   node1: |
     -----BEGIN OPENSSH PRIVATE KEY-----
@@ -89,6 +96,13 @@ vault__initial_ansible_user_ssh_key__list:
     -----BEGIN OPENSSH PRIVATE KEY-----
     ssh_key
     -----END OPENSSH PRIVATE KEY-----
+
+vault__initial_ansible_user_ssh_public_key__list:
+  node1: "ssh-ed25519 AAAA... initial_user_public_key"
+  node2: "ssh-ed25519 AAAA... initial_user_public_key"
+  node3: "ssh-ed25519 AAAA... initial_user_public_key"
+  node4: "ssh-ed25519 AAAA... initial_user_public_key"
+  node5: "ssh-ed25519 AAAA... initial_user_public_key"
 
 # =============================================================================
 # Connection variables
@@ -136,3 +150,10 @@ vault__ansible_user_ssh_key__list:
     -----BEGIN OPENSSH PRIVATE KEY-----
     ssh_key
     -----END OPENSSH PRIVATE KEY-----
+
+vault__ansible_user_ssh_public_key__list:
+  node1: "ssh-ed25519 AAAA... deployer_user_public_key"
+  node2: "ssh-ed25519 AAAA... deployer_user_public_key"
+  node3: "ssh-ed25519 AAAA... deployer_user_public_key"
+  node4: "ssh-ed25519 AAAA... deployer_user_public_key"
+  node5: "ssh-ed25519 AAAA... deployer_user_public_key"
