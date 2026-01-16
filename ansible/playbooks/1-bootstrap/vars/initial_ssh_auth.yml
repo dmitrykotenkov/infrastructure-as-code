@@ -1,13 +1,8 @@
-ansible_password: >-
-  {{ (vault__initial_ansible_user_initial_password__list.get(inventory_hostname) is not none)
-     | ternary(vault__initial_ansible_user_initial_password__list.get(inventory_hostname), omit) }}
-
-iac__ansible_ssh_private_key: >-
-  {{ (vault__initial_ansible_user_initial_ssh_key__list.get(inventory_hostname) is not none)
-     | ternary(vault__initial_ansible_user_initial_ssh_key__list.get(inventory_hostname), omit) }}
-
-ansible_ssh_private_key_file: >-
-  {{ (vault__initial_ansible_user_initial_ssh_key__list.get(inventory_hostname) is not none)
-     | ternary(iac__common__ansible_ssh_private_key_file, omit) }}
-
+---
+# Initial connection configuration
+ansible_user: "{{ vault__initial_ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
 ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+
+# Internal flag to determine auth type
+__initial_auth_has_password: "{{ vault__initial_ansible_user_initial_password__list.get(inventory_hostname) is not none }}"
+__initial_auth_has_ssh_key: "{{ vault__initial_ansible_user_initial_ssh_key__list.get(inventory_hostname) is not none }}"

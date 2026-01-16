@@ -1,11 +1,22 @@
 ---
-- name: Bootstrap | Sync known_hosts for initial SSH port
+- name: Bootstrap | Preflight
   hosts: bootstrap_targets
   gather_facts: false
   vars_files:
     - "{{ playbook_dir }}/../vars/initial_ssh_auth.yml"
 
   pre_tasks:
+    - name: Set password auth if configured
+      ansible.builtin.set_fact:
+        ansible_password: "{{ vault__initial_ansible_user_initial_password__list.get(inventory_hostname) }}"
+      when: __initial_auth_has_password | bool
+
+    - name: Set SSH key auth if configured
+      ansible.builtin.set_fact:
+        iac__ansible_ssh_private_key: "{{ vault__initial_ansible_user_initial_ssh_key__list.get(inventory_hostname) }}"
+        ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+      when: __initial_auth_has_ssh_key | bool
+
     - name: Validate auth method 
       ansible.builtin.include_role:
         name: _shared/_validate_auth_method
@@ -16,7 +27,7 @@
     
     - name: Sync known_hosts for initial ansible port
       ansible.builtin.include_role:
-        name: _shared/_sync-known-hosts
+        name: _shared/_sync_known_hosts
 
     - name: Gather facts
       ansible.builtin.setup:

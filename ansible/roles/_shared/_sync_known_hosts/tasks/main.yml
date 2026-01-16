@@ -49,6 +49,7 @@
     path: "{{ __shared__sync_known_hosts__ssh_dir }}"
     state: directory
     mode: "{{ iac__common__ssh_directory_mode }}"
+  check_mode: false
   throttle: 1
 
 # =============================================================================
@@ -62,6 +63,7 @@
     state: touch
     mode: "{{ iac__common__ssh_file_mode }}"
   changed_when: false
+  check_mode: false
   throttle: 1
 
 # =============================================================================
@@ -79,6 +81,7 @@
       - "{{ __shared__sync_known_hosts__known_hosts_file }}"
   changed_when: false
   failed_when: false
+  check_mode: false
   throttle: 1
 
 - name: Shared | Sync known_hosts (5/8)[2/2] - Remove stale key ([host]:port format)
@@ -93,6 +96,7 @@
       - "{{ __shared__sync_known_hosts__known_hosts_file }}"
   changed_when: false
   failed_when: false
+  check_mode: false
   throttle: 1
   when: __shared__sync_known_hosts__target_port | int != 22
 
@@ -114,6 +118,7 @@
       - "{{ __shared__sync_known_hosts__host_ip }}"
   register: __shared__sync_known_hosts__scan_result
   changed_when: false
+  check_mode: false
   retries: "{{ iac__shared__sync_known_hosts__ssh_keyscan_retries }}"
   delay: "{{ iac__shared__sync_known_hosts__ssh_keyscan_delay }}"
   until: __shared__sync_known_hosts__scan_result.stdout | trim != ""
@@ -131,7 +136,9 @@
     hash_host: "{{ iac__shared__sync_known_hosts__hash_hosts }}"
     state: present
   loop: "{{ __shared__sync_known_hosts__scan_result.stdout_lines }}"
+  check_mode: false
   throttle: 1
+  no_log: true
   when: __shared__sync_known_hosts__target_port | int == 22
 
 - name: Shared | Sync known_hosts (7/8)[2/2] - Add key to known_hosts ([host]:port format)
@@ -149,7 +156,9 @@
     hash_host: "{{ iac__shared__sync_known_hosts__hash_hosts }}"
     state: present
   loop: "{{ __shared__sync_known_hosts__scan_result.stdout_lines }}"
+  check_mode: false
   throttle: 1
+  no_log: true
   when: __shared__sync_known_hosts__target_port | int != 22
 
 # =============================================================================

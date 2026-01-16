@@ -27,7 +27,7 @@
         and 
         iac__common__ansible_ssh_private_key_file_directory is not none 
         and 
-        (iac__common__ansible_ssh_private_key_file_directory | string | length)
+        (iac__common__ansible_ssh_private_key_file_directory | string | length) > 0
     fail_msg: "Host {{ inventory_hostname }} is missing or has invalid SSH private key file directory variable."
     quiet: true
   changed_when: false
@@ -46,7 +46,7 @@
         and 
         iac__common__ansible_ssh_private_key_file is not none 
         and 
-        (iac__common__ansible_ssh_private_key_file | string | length)
+        (iac__common__ansible_ssh_private_key_file | string | length) > 0
     fail_msg: "Host {{ inventory_hostname }} is missing or has invalid SSH private key file variable."
     quiet: true
   changed_when: false
@@ -65,7 +65,7 @@
         and 
         iac__common__ansible_artifacts_directory is not none 
         and 
-        (iac__common__ansible_artifacts_directory | string | length)
+        (iac__common__ansible_artifacts_directory | string | length) > 0
     fail_msg: "Ansible .artifacts directory variable is missing or invalid."
     quiet: true
   run_once: true
@@ -97,19 +97,21 @@
     path: "{{ iac__common__ansible_ssh_private_key_file_directory }}"
     state: directory
     mode: "{{ iac__common__ansible_ssh_private_key_file_directory_mode }}"
+  check_mode: false
   throttle: 1
   when: __shared__ensure_ssh_key_file__required | bool
 
 # =============================================================================
 # Section 7/9: Write SSH private key content to file if not exists or differs
 # =============================================================================
-- name: Shared | Ensure SSH key file (7/9) - Write SSH private key content to file if not exists or differs
+- name: Shared | Ensure SSH key file (7/9)[1/2] - Write SSH private key content to file if not exists or differs
   delegate_to: localhost
   become: false
   ansible.builtin.copy:
     content: "{{ iac__ansible_ssh_private_key }}"
     dest: "{{ iac__common__ansible_ssh_private_key_file }}"
     mode: "{{ iac__common__ansible_ssh_private_key_file_mode }}"
+  check_mode: false
   throttle: 1
   no_log: true
   when: __shared__ensure_ssh_key_file__required | bool
@@ -131,12 +133,10 @@
 - name: Shared | Ensure SSH key file (9/9) - Display SSH key provisioning status
   delegate_to: localhost
   become: false
-  run_once: true
   ansible.builtin.debug:
     msg:
       - "  SSH private key provisioning completed"
       - "  File: {{ iac__common__ansible_ssh_private_key_file }}"
       - "  Mode: {{ iac__common__ansible_ssh_private_key_file_mode }}"
-      - "  Directory: {{ iac__common__ansible_ssh_private_key_file_directory }}"
       - "  Validated: Yes"
   when: __shared__ensure_ssh_key_file__required | bool
