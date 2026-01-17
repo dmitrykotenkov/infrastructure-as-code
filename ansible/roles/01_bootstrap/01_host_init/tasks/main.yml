@@ -25,6 +25,7 @@
       - (iac__bootstrap__host_init__hostname | string | length) > 0
     fail_msg: "iac__bootstrap__host_init__hostname must be defined and non-empty"
     quiet: true
+  changed_when: false
 
 - name: Bootstrap | Host Init (1/4) | Validation [2/2] | Assert timezone is defined
   ansible.builtin.assert:
@@ -33,6 +34,7 @@
       - (iac__bootstrap__host_init__timezone | string | length) > 0
     fail_msg: "iac__bootstrap__host_init__timezone must be defined and non-empty"
     quiet: true
+  changed_when: false
 
 # =============================================================================
 # Section 2/4: Main Tasks

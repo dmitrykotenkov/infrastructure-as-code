@@ -13,6 +13,10 @@
     - "{{ playbook_dir }}/vars/initial_ssh_auth.yml"
 
   tasks:
-    - name: Bootstrap | Initial Setup (1/1) | Main Tasks [1/1] | 01 Host Init
+    - name: Bootstrap | Initial Setup (1/1) | Main Tasks [1/2] | 01 Host Init
       ansible.builtin.include_role:
         name: 01_bootstrap/01_host_init
+
+    - name: Bootstrap | Initial Setup (1/1) | Main Tasks [2/2] | 02 Packages
+      ansible.builtin.include_role:
+        name: 01_bootstrap/02_packages

@@ -1,0 +1,64 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__packages__skip: false
+
+iac__bootstrap__packages__apt_update_lock_timeout: 930
+iac__bootstrap__packages__apt_update_async_timeout: 900
+iac__bootstrap__packages__apt_upgrade_lock_timeout: 3630
+iac__bootstrap__packages__apt_upgrade_async_timeout: 3600
+iac__bootstrap__packages__ssh_reconnect_timeout: 3600
+iac__bootstrap__packages__reboot_timeout: 600
+iac__bootstrap__packages__perform_upgrade: true
+# Upgrade type: "yes" (normal), "safe" (safe-upgrade), "full" (full-upgrade), "dist" (dist-upgrade)
+iac__bootstrap__packages__upgrade_type: "yes"
+iac__bootstrap__packages__reboot_if_required: true
+
+iac__bootstrap__packages__base_packages:
+  # Essential utilities
+  - ca-certificates
+  - curl
+  - wget
+  - gnupg
+  - lsb-release
+  - apt-transport-https
+
+  # Compression
+  - unzip
+  - tar
+  - gzip
+  - bzip2
+
+  # System monitoring
+  - htop
+  - iotop
+  - sysstat
+
+  # Text processing
+  - jq
+  - vim
+
+  # Network utilities
+  - dnsutils
+  - net-tools
+  - iputils-ping
+  - traceroute
+
+  # System management
+  - sudo
+  - cron
+  - logrotate
+
+  # Security packages (will be configured by later roles)
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - update-notifier-common
+
+iac__bootstrap__packages__extra_packages: []
+iac__bootstrap__packages__remove_packages: []
+
+iac__bootstrap__packages__configure_auto_unattended_upgrades: true
+iac__bootstrap__packages__auto_unattended_reboot: true
+iac__bootstrap__packages__auto_unattended_reboot_time: "02:00"

@@ -42,9 +42,9 @@ ansible/
 | Role/playbook defaults | `{project}__{section}__{role}__{name}` | `iac__shared__ensure_ssh_key_file__ansible_ssh_private_key` |
 | Local (registered) | `__{project}__{section}__{role}__{name}` | `__iac__shared__ensure_ssh_key_file__required` |
 
-- Inventory defaults → `defaults.yml` in inventory `group_vars/all/`
-- Inventory common → `common.yml` in inventory `group_vars/all/`
-- Role defaults → `defaults/main.yml` in role directory
+- Inventory defaults -> `defaults.yml` in inventory `group_vars/all/`
+- Inventory common -> `common.yml` in inventory `group_vars/all/`
+- Role defaults -> `defaults/main.yml` in role directory
 
 ## Role Structure
 
