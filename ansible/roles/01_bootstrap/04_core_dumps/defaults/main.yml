@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__core_dumps__skip: false
+
+iac__bootstrap__core_dumps__disable: true
+iac__bootstrap__core_dumps__limits_file: /etc/security/limits.d/99-ansible-coredump.conf
+iac__bootstrap__core_dumps__sysctl_file: /etc/sysctl.d/99-ansible-coredump.conf
+# Apply to all users (including root)
+iac__bootstrap__core_dumps__apply_to_all_users: true
+
+# Additional users/groups to exempt from core dump restrictions (if needed)
+# Format: list of usernames or @groupnames
+iac__bootstrap__core_dumps__exempt_users: []
