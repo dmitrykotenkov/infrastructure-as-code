@@ -1,0 +1,150 @@
+---
+# =============================================================================
+# Role: 03_sysctl_hardening
+# =============================================================================
+# Configures kernel-level security parameters via sysctl.
+# Hardens network stack, kernel, and memory subsystems.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | Sysctl Hardening (0/4) | Preconditions [1/1] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__sysctl_hardening__skip | bool
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Bootstrap | Sysctl Hardening (1/4) | Validation [1/2] | Assert network params defined
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__sysctl_hardening__network_params is defined
+      - iac__bootstrap__sysctl_hardening__network_params | length > 0
+    fail_msg: "iac__bootstrap__sysctl_hardening__network_params must be defined and non-empty"
+    quiet: true
+  changed_when: false
+
+- name: Bootstrap | Sysctl Hardening (1/4) | Validation [2/2] | Assert config file path defined
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__sysctl_hardening__config_file is defined
+      - (iac__bootstrap__sysctl_hardening__config_file | string | length) > 0
+    fail_msg: "iac__bootstrap__sysctl_hardening__config_file must be defined and non-empty"
+    quiet: true
+  changed_when: false
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Network Security Parameters
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Sysctl Hardening (2/4) | Main Tasks [1/4] | Apply network security parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: "{{ iac__bootstrap__sysctl_hardening__config_file }}"
+    reload: true
+  loop: "{{ iac__bootstrap__sysctl_hardening__network_params }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.value }}"
+
+# -----------------------------------------------------------------------------
+# Kernel Security Parameters
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Sysctl Hardening (2/4) | Main Tasks [2/4] | Apply kernel security parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: "{{ iac__bootstrap__sysctl_hardening__config_file }}"
+    reload: true
+  loop: "{{ iac__bootstrap__sysctl_hardening__kernel_params }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.value }}"
+
+# -----------------------------------------------------------------------------
+# Memory Security Parameters
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Sysctl Hardening (2/4) | Main Tasks [3/4] | Apply memory security parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: "{{ iac__bootstrap__sysctl_hardening__config_file }}"
+    reload: true
+  loop: "{{ iac__bootstrap__sysctl_hardening__memory_params }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.value }}"
+
+# -----------------------------------------------------------------------------
+# Extra Custom Parameters
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Sysctl Hardening (2/4) | Main Tasks [4/4] | Apply extra custom parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: "{{ iac__bootstrap__sysctl_hardening__config_file }}"
+    reload: true
+  loop: "{{ iac__bootstrap__sysctl_hardening__extra_params }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.value }}"
+  when: iac__bootstrap__sysctl_hardening__extra_params | length > 0
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [1/5] | Verify IP forwarding disabled
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: __iac__bootstrap__sysctl_hardening__ip_forward
+  changed_when: false
+  failed_when: __iac__bootstrap__sysctl_hardening__ip_forward.stdout != "0"
+
+- name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [2/5] | Verify TCP SYN cookies enabled
+  ansible.builtin.command: sysctl -n net.ipv4.tcp_syncookies
+  register: __iac__bootstrap__sysctl_hardening__syncookies
+  changed_when: false
+  failed_when: __iac__bootstrap__sysctl_hardening__syncookies.stdout != "1"
+
+- name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [3/5] | Verify Kernel pointer hiding enabled
+  ansible.builtin.command: sysctl -n kernel.kptr_restrict
+  register: __iac__bootstrap__sysctl_hardening__kptr_restrict
+  changed_when: false
+  failed_when: __iac__bootstrap__sysctl_hardening__kptr_restrict.stdout != "2"
+
+- name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [4/5] | Verify ASLR enabled
+  ansible.builtin.command: sysctl -n kernel.randomize_va_space
+  register: __iac__bootstrap__sysctl_hardening__aslr
+  changed_when: false
+  failed_when: __iac__bootstrap__sysctl_hardening__aslr.stdout != "2"
+
+- name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [5/5] | Verify config file exists
+  ansible.builtin.stat:
+    path: "{{ iac__bootstrap__sysctl_hardening__config_file }}"
+  register: __iac__bootstrap__sysctl_hardening__config_stat
+  failed_when: not __iac__bootstrap__sysctl_hardening__config_stat.stat.exists
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | Sysctl Hardening (4/4) | Completion Status [1/1] | Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "Sysctl hardening completed successfully"
+      - "  Network parameters: {{ iac__bootstrap__sysctl_hardening__network_params | length }}"
+      - "  Kernel parameters: {{ iac__bootstrap__sysctl_hardening__kernel_params | length }}"
+      - "  Memory parameters: {{ iac__bootstrap__sysctl_hardening__memory_params | length }}"
+      - "  Extra parameters: {{ iac__bootstrap__sysctl_hardening__extra_params | length }}"
+      - "  Config file: {{ iac__bootstrap__sysctl_hardening__config_file }}"
