@@ -129,12 +129,12 @@ Run preflight playbook to verify connectivity before bootstrap:
 
 ```bash
 # Linux
-cd ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/specific/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass
+cd ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/specific/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass'
 ```
 
 _**Do not forget to adjust commands with your actual `project_name` and environment (`dev`, `prod`, etc.).**_

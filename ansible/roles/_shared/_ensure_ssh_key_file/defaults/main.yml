@@ -1,5 +1,5 @@
 ---
 # =============================================================================
-# Required variables: must be set at playbook or inventory level
+# Required variables (must be set at playbook or inventory level)
 # =============================================================================
-iac__ansible_ssh_private_key: ~
+iac__shared__ensure_ssh_key_file__ansible_ssh_private_key: ~

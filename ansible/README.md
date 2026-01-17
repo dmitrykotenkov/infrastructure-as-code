@@ -7,7 +7,7 @@ Automation playbooks and roles for infrastructure management.
 
 ```bash
 # Run bootstrap preflight (connectivity verification)
-ansible-playbook playbooks/1-bootstrap/specific/_preflight.yml \
+ansible-playbook playbooks/1-bootstrap/_preflight.yml \
   -i inventories/test_lab/dev/hosts.yml \
   --ask-vault-pass
 ```

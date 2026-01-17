@@ -1,8 +1,8 @@
 ---
 # =============================================================================
-# Section 1/8: Validate required variables
+# Section 1/4: Validation
 # =============================================================================
-- name: Shared | Sync known_hosts (1/8)[1/2] - Validate ansible_port is defined and valid
+- name: Shared | Sync Known Hosts (1/4) | Validation [1/2] | Ansible port is defined and valid
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
@@ -14,7 +14,7 @@
     quiet: true
   changed_when: false
 
-- name: Shared | Sync known_hosts (1/8)[2/2] - Validate ansible_host is defined
+- name: Shared | Sync Known Hosts (1/4) | Validation [2/2] | Ansible host is defined
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
@@ -27,83 +27,71 @@
   changed_when: false
 
 # =============================================================================
-# Section 2/8: Set internal variables
+# Section 2/4: Main Tasks
 # =============================================================================
-- name: Shared | Sync known_hosts (2/8) - Set internal variables
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [1/8] | Set internal variables
   delegate_to: localhost
   become: false
   ansible.builtin.set_fact:
-    __shared__sync_known_hosts__ssh_dir: "{{ lookup('env', 'HOME') }}/.ssh"
-    __shared__sync_known_hosts__known_hosts_file: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
-    __shared__sync_known_hosts__host_ip: "{{ ansible_host }}"
-    __shared__sync_known_hosts__target_port: "{{ ansible_port | int }}"
+    __iac__shared__sync_known_hosts__ssh_dir: "{{ iac__common__ssh_base_directory }}"
+    __iac__shared__sync_known_hosts__known_hosts_file: "{{ iac__common__ssh_base_directory }}/known_hosts"
+    __iac__shared__sync_known_hosts__host_ip: "{{ ansible_host }}"
+    __iac__shared__sync_known_hosts__target_port: "{{ ansible_port | int }}"
   changed_when: false
 
-# =============================================================================
-# Section 3/8: Ensure SSH directory exists
-# =============================================================================
-- name: Shared | Sync known_hosts (3/8) - Ensure SSH directory exists
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [2/8] | Create SSH directory if not exists
   delegate_to: localhost
   become: false
   ansible.builtin.file:
-    path: "{{ __shared__sync_known_hosts__ssh_dir }}"
+    path: "{{ __iac__shared__sync_known_hosts__ssh_dir }}"
     state: directory
     mode: "{{ iac__common__ssh_directory_mode }}"
   check_mode: false
   throttle: 1
 
-# =============================================================================
-# Section 4/8: Ensure known_hosts file exists
-# =============================================================================
-- name: Shared | Sync known_hosts (4/8) - Ensure known_hosts file exists
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [3/8] | Create known_hosts file if not exists
   delegate_to: localhost
   become: false
   ansible.builtin.file:
-    path: "{{ __shared__sync_known_hosts__known_hosts_file }}"
+    path: "{{ __iac__shared__sync_known_hosts__known_hosts_file }}"
     state: touch
     mode: "{{ iac__common__ssh_file_mode }}"
   changed_when: false
   check_mode: false
   throttle: 1
 
-# =============================================================================
-# Section 5/8: Remove stale host key entries
-# =============================================================================
-- name: Shared | Sync known_hosts (5/8)[1/2] - Remove stale key (plain hostname format)
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [4/8] | Remove stale host key entry for plain hostname
   delegate_to: localhost
   become: false
   ansible.builtin.command:
     argv:
       - ssh-keygen
       - -R
-      - "{{ __shared__sync_known_hosts__host_ip }}"
+      - "{{ __iac__shared__sync_known_hosts__host_ip }}"
       - -f
-      - "{{ __shared__sync_known_hosts__known_hosts_file }}"
+      - "{{ __iac__shared__sync_known_hosts__known_hosts_file }}"
   changed_when: false
   failed_when: false
   check_mode: false
   throttle: 1
 
-- name: Shared | Sync known_hosts (5/8)[2/2] - Remove stale key ([host]:port format)
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [5/8] | Remove stale host key entry for [host]:port format
   delegate_to: localhost
   become: false
   ansible.builtin.command:
     argv:
       - ssh-keygen
       - -R
-      - "[{{ __shared__sync_known_hosts__host_ip }}]:{{ __shared__sync_known_hosts__target_port }}"
+      - "[{{ __iac__shared__sync_known_hosts__host_ip }}]:{{ __iac__shared__sync_known_hosts__target_port }}"
       - -f
-      - "{{ __shared__sync_known_hosts__known_hosts_file }}"
+      - "{{ __iac__shared__sync_known_hosts__known_hosts_file }}"
   changed_when: false
   failed_when: false
+  when: __iac__shared__sync_known_hosts__target_port | int != 22
   check_mode: false
   throttle: 1
-  when: __shared__sync_known_hosts__target_port | int != 22
 
-# =============================================================================
-# Section 6/8: Scan host key from target
-# =============================================================================
-- name: Shared | Sync known_hosts (6/8) - Scan host key on target port
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [6/8] | Scan host key from target
   delegate_to: localhost
   become: false
   ansible.builtin.command:
@@ -112,64 +100,66 @@
       - -T
       - "{{ iac__shared__sync_known_hosts__ssh_keyscan_timeout | string }}"
       - -p
-      - "{{ __shared__sync_known_hosts__target_port | string }}"
+      - "{{ __iac__shared__sync_known_hosts__target_port | string }}"
       - -t
       - "{{ iac__shared__sync_known_hosts__ssh_keyscan_types }}"
-      - "{{ __shared__sync_known_hosts__host_ip }}"
-  register: __shared__sync_known_hosts__scan_result
+      - "{{ __iac__shared__sync_known_hosts__host_ip }}"
+  register: __iac__shared__sync_known_hosts__scan_result
   changed_when: false
-  check_mode: false
   retries: "{{ iac__shared__sync_known_hosts__ssh_keyscan_retries }}"
   delay: "{{ iac__shared__sync_known_hosts__ssh_keyscan_delay }}"
-  until: __shared__sync_known_hosts__scan_result.stdout | trim != ""
+  until: __iac__shared__sync_known_hosts__scan_result.stdout | trim != ""
+  check_mode: false
 
-# =============================================================================
-# Section 7/8: Add scanned key to known_hosts
-# =============================================================================
-- name: Shared | Sync known_hosts (7/8)[1/2] - Add key to known_hosts (plain format for port 22)
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [7/8] | Add scanned key to known_hosts for port 22
   delegate_to: localhost
   become: false
   ansible.builtin.known_hosts:
-    path: "{{ __shared__sync_known_hosts__known_hosts_file }}"
-    name: "{{ __shared__sync_known_hosts__host_ip }}"
+    path: "{{ __iac__shared__sync_known_hosts__known_hosts_file }}"
+    name: "{{ __iac__shared__sync_known_hosts__host_ip }}"
     key: "{{ item }}"
     hash_host: "{{ iac__shared__sync_known_hosts__hash_hosts }}"
     state: present
-  loop: "{{ __shared__sync_known_hosts__scan_result.stdout_lines }}"
+  when: __iac__shared__sync_known_hosts__target_port | int == 22
+  loop: "{{ __iac__shared__sync_known_hosts__scan_result.stdout_lines }}"
   check_mode: false
   throttle: 1
   no_log: true
-  when: __shared__sync_known_hosts__target_port | int == 22
 
-- name: Shared | Sync known_hosts (7/8)[2/2] - Add key to known_hosts ([host]:port format)
+- name: Shared | Sync Known Hosts (2/4) | Main Tasks [8/8] | Add scanned key to known_hosts for non-standard port
   delegate_to: localhost
   become: false
   ansible.builtin.known_hosts:
-    path: "{{ __shared__sync_known_hosts__known_hosts_file }}"
-    name: "[{{ __shared__sync_known_hosts__host_ip }}]:{{ __shared__sync_known_hosts__target_port }}"
+    path: "{{ __iac__shared__sync_known_hosts__known_hosts_file }}"
+    name: "[{{ __iac__shared__sync_known_hosts__host_ip }}]:{{ __iac__shared__sync_known_hosts__target_port }}"
     key: >-
       {{ item | regex_replace(
-           '^' ~ __shared__sync_known_hosts__host_ip ~ '\\s+',
-           '[' ~ __shared__sync_known_hosts__host_ip ~ ']:' ~ (__shared__sync_known_hosts__target_port | string) ~ ' '
+           '^' ~ __iac__shared__sync_known_hosts__host_ip ~ '\\s+',
+           '[' ~ __iac__shared__sync_known_hosts__host_ip ~ ']:' ~ (__iac__shared__sync_known_hosts__target_port | string) ~ ' '
          )
       }}
     hash_host: "{{ iac__shared__sync_known_hosts__hash_hosts }}"
     state: present
-  loop: "{{ __shared__sync_known_hosts__scan_result.stdout_lines }}"
+  when: __iac__shared__sync_known_hosts__target_port | int != 22
+  loop: "{{ __iac__shared__sync_known_hosts__scan_result.stdout_lines }}"
   check_mode: false
   throttle: 1
   no_log: true
-  when: __shared__sync_known_hosts__target_port | int != 22
 
 # =============================================================================
-# Section 8/8: Display completion status
+# Section 3/4: Result Validation
 # =============================================================================
-- name: Shared | Sync known_hosts (8/8) - Display sync status
+# No result validation needed for this role
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+- name: Shared | Sync Known Hosts (4/4) | Completion Status [1/1] | Known hosts sync status
   delegate_to: localhost
   become: false
   ansible.builtin.debug:
     msg:
-      - "  known_hosts synced successfully"
-      - "  Host: {{ __shared__sync_known_hosts__host_ip }}"
-      - "  Port: {{ __shared__sync_known_hosts__target_port }}"
-      - "  File: {{ __shared__sync_known_hosts__known_hosts_file }}"
+      - "  Known hosts synchronization completed"
+      - "  Host: {{ __iac__shared__sync_known_hosts__host_ip }}"
+      - "  Port: {{ __iac__shared__sync_known_hosts__target_port }}"
+      - "  File: {{ __iac__shared__sync_known_hosts__known_hosts_file }}"

@@ -1,8 +1,8 @@
 ---
 # =============================================================================
-# Section 1/2: Validation that exactly one authentication method is defined
+# Section 1/2: Validation
 # =============================================================================
-- name: Shared | Validate auth method (1/2) - Validate exactly one authentication method is defined
+- name: Shared | Validate Auth Method (1/2) | Validation [1/2] | Exactly one authentication method is defined
   ansible.builtin.assert:
     that:
       - >
@@ -15,10 +15,7 @@
     quiet: true
   changed_when: false
 
-# =============================================================================
-# Section 2/2: Validation that required connection variables are defined
-# =============================================================================
-- name: Shared | Validate auth method (2/2) - Validate required connection variables are defined
+- name: Shared | Validate Auth Method (1/2) | Validation [2/2] | Required connection variables are defined
   ansible.builtin.assert:
     that:
       - ansible_host is defined and ansible_host is not none and (ansible_host | string | length) > 0
@@ -29,3 +26,10 @@
       (ansible_host / ansible_port / ansible_user) or they are invalid.
     quiet: true
   changed_when: false
+
+# =============================================================================
+# Section 2/2: Completion Status
+# =============================================================================
+- name: Shared | Validate Auth Method (2/2) | Completion Status [1/1] | Authentication method validation status
+  ansible.builtin.debug:
+    msg: "  Authentication method validation completed for {{ inventory_hostname }}"

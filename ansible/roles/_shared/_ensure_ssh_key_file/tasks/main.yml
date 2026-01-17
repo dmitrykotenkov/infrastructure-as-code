@@ -1,23 +1,23 @@
 ---
 # =============================================================================
-# Section 1/9: Conditional Variable Setup
+# Section 0/4: Preconditions
 # =============================================================================
-- name: Shared | Ensure SSH key file (1/9) - Determine if SSH key provisioning is required
+- name: Shared | Ensure SSH Key File (0/4) | Preconditions [1/1] | Determine if SSH key provisioning is required
   delegate_to: localhost
   become: false
   ansible.builtin.set_fact:
-    __shared__ensure_ssh_key_file__required: >-
+    __iac__shared__ensure_ssh_key_file__required: >-
       {{
-        iac__ansible_ssh_private_key is defined
-        and iac__ansible_ssh_private_key is not none
-        and (iac__ansible_ssh_private_key | string | length) > 0
+        iac__shared__ensure_ssh_key_file__ansible_ssh_private_key is defined
+        and iac__shared__ensure_ssh_key_file__ansible_ssh_private_key is not none
+        and (iac__shared__ensure_ssh_key_file__ansible_ssh_private_key | string | length) > 0
       }}
   changed_when: false
 
 # =============================================================================
-# Section 2/9: Validate SSH private key file directory is defined
+# Section 1/4: Validation
 # =============================================================================
-- name: Shared | Ensure SSH key file (2/9) - Validate SSH private key file directory is defined
+- name: Shared | Ensure SSH Key File (1/4) | Validation [1/4] | SSH private key file directory is defined
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
@@ -31,12 +31,9 @@
     fail_msg: "Host {{ inventory_hostname }} is missing or has invalid SSH private key file directory variable."
     quiet: true
   changed_when: false
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
-# =============================================================================
-# Section 3/9: Validate SSH private key file is defined
-# =============================================================================
-- name: Shared | Ensure SSH key file (3/9) - Validate SSH private key file is defined
+- name: Shared | Ensure SSH Key File (1/4) | Validation [2/4] | SSH private key file is defined
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
@@ -50,47 +47,41 @@
     fail_msg: "Host {{ inventory_hostname }} is missing or has invalid SSH private key file variable."
     quiet: true
   changed_when: false
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
-# =============================================================================
-# Section 4/9: Validate Ansible .artifacts directory is defined
-# =============================================================================
-- name: Shared | Ensure SSH key file (4/9) - Validate Ansible .artifacts directory is defined
+- name: Shared | Ensure SSH Key File (1/4) | Validation [3/4] | SSH base directory is defined
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
     that:
       - >-
-        iac__common__ansible_artifacts_directory is defined 
+        iac__common__ssh_base_directory is defined 
         and 
-        iac__common__ansible_artifacts_directory is not none 
+        iac__common__ssh_base_directory is not none 
         and 
-        (iac__common__ansible_artifacts_directory | string | length) > 0
-    fail_msg: "Ansible .artifacts directory variable is missing or invalid."
+        (iac__common__ssh_base_directory | string | length) > 0
+    fail_msg: "SSH base directory variable is missing or invalid."
     quiet: true
   run_once: true
   changed_when: false
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
-# =============================================================================
-# Section 5/9: Validate Ansible .artifacts directory exists
-# =============================================================================
-- name: Shared | Ensure SSH key file (5/9) - Validate Ansible .artifacts directory exists
+- name: Shared | Ensure SSH Key File (1/4) | Validation [4/4] | SSH base directory exists
   delegate_to: localhost
   become: false
   ansible.builtin.stat:
-    path: "{{ iac__common__ansible_artifacts_directory }}"
-  register: __shared__ensure_ssh_key_file__artifacts_dir_stat
+    path: "{{ iac__common__ssh_base_directory }}"
+  register: __iac__shared__ensure_ssh_key_file__artifacts_dir_stat
   failed_when: >-
-    not __shared__ensure_ssh_key_file__artifacts_dir_stat.stat.exists
-    or not __shared__ensure_ssh_key_file__artifacts_dir_stat.stat.isdir
+    not __iac__shared__ensure_ssh_key_file__artifacts_dir_stat.stat.exists
+    or not __iac__shared__ensure_ssh_key_file__artifacts_dir_stat.stat.isdir
   run_once: true
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
 # =============================================================================
-# Section 6/9: Create SSH private key file directory if not exists
+# Section 2/4: Main Tasks
 # =============================================================================
-- name: Shared | Ensure SSH key file (6/9) - Create SSH private key file directory if not exists
+- name: Shared | Ensure SSH Key File (2/4) | Main Tasks [1/2] | Create SSH private key file directory if not exists
   delegate_to: localhost
   become: false
   ansible.builtin.file:
@@ -99,38 +90,35 @@
     mode: "{{ iac__common__ansible_ssh_private_key_file_directory_mode }}"
   check_mode: false
   throttle: 1
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
-# =============================================================================
-# Section 7/9: Write SSH private key content to file if not exists or differs
-# =============================================================================
-- name: Shared | Ensure SSH key file (7/9)[1/2] - Write SSH private key content to file if not exists or differs
+- name: Shared | Ensure SSH Key File (2/4) | Main Tasks [2/2] | Write SSH private key content to file if not exists or differs
   delegate_to: localhost
   become: false
   ansible.builtin.copy:
-    content: "{{ iac__ansible_ssh_private_key }}"
+    content: "{{ iac__shared__ensure_ssh_key_file__ansible_ssh_private_key }}"
     dest: "{{ iac__common__ansible_ssh_private_key_file }}"
     mode: "{{ iac__common__ansible_ssh_private_key_file_mode }}"
   check_mode: false
   throttle: 1
   no_log: true
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
 # =============================================================================
-# Section 8/9: Validate SSH private key file with ssh-keygen
+# Section 3/4: Result Validation
 # =============================================================================
-- name: Shared | Ensure SSH key file (8/9) - Validate SSH private key file with ssh-keygen
+- name: Shared | Ensure SSH Key File (3/4) | Result Validation [1/1] | Validate SSH private key file with ssh-keygen
   delegate_to: localhost
   become: false
   ansible.builtin.command: "ssh-keygen -y -f {{ iac__common__ansible_ssh_private_key_file }}"
   changed_when: false
   no_log: true
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool
 
 # =============================================================================
-# Section 9/9: Display completion status
+# Section 4/4: Completion Status
 # =============================================================================
-- name: Shared | Ensure SSH key file (9/9) - Display SSH key provisioning status
+- name: Shared | Ensure SSH Key File (4/4) | Completion Status [1/1] | SSH key provisioning status
   delegate_to: localhost
   become: false
   ansible.builtin.debug:
@@ -139,4 +127,4 @@
       - "  File: {{ iac__common__ansible_ssh_private_key_file }}"
       - "  Mode: {{ iac__common__ansible_ssh_private_key_file_mode }}"
       - "  Validated: Yes"
-  when: __shared__ensure_ssh_key_file__required | bool
+  when: __iac__shared__ensure_ssh_key_file__required | bool

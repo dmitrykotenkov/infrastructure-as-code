@@ -87,7 +87,7 @@ Keep descriptions **brief** (3-10 words), **action-focused**, **specific**.
 iac__shared__role_name__required_var: ~
 
 # =============================================================================
-# Optional variables
+# Optional variables (can be overridden at playbook or inventory level)
 # =============================================================================
 iac__shared__role_name__optional_var: "default_value"
 ```
@@ -95,7 +95,9 @@ iac__shared__role_name__optional_var: "default_value"
 - Only include defaults file if role has configurable variables
 - Only include section if role has variables of that type
 - Two sections: `Required variables`, `Optional variables`
-- Add `(must be set at playbook or inventory level)` when value determined externally
+- Omit the section if there are no variables of that type
+- Add `(must be set at playbook or inventory level)` when values determined externally
+- Add `(can be overridden at playbook or inventory level)` for configurable variables
 
 ## Playbook Structure
 

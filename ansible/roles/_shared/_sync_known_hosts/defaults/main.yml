@@ -1,6 +1,6 @@
 ---
 # =============================================================================
-# Optional variables: can be overridden at playbook or inventory level
+# Optional variables (can be overridden at playbook or inventory level)
 # =============================================================================
 iac__shared__sync_known_hosts__ssh_keyscan_timeout: 5
 iac__shared__sync_known_hosts__ssh_keyscan_retries: 30
