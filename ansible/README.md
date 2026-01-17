@@ -7,7 +7,7 @@ Automation playbooks and roles for infrastructure management.
 
 ```bash
 # Run bootstrap preflight (connectivity verification)
-ansible-playbook playbooks/1-bootstrap/_preflight.yml \
+ansible-playbook playbooks/01_bootstrap/00_preflight.yml \
   -i inventories/test_lab/dev/hosts.yml \
   --ask-vault-pass
 ```
@@ -19,7 +19,7 @@ ansible/
 ├── inventories/          # Environment inventories
 │   └── test_lab/dev/     # Development environment
 ├── playbooks/            # Execution playbooks
-│   └── 1-bootstrap/      # Bootstrap phase
+│   └── 01_bootstrap/     # Bootstrap phase
 ├── roles/                # Reusable roles
 │   └── _shared/          # Shared utility roles
 └── requirements.yml      # Ansible dependencies

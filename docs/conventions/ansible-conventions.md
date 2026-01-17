@@ -30,7 +30,7 @@ ansible/
 ```
 
 - Shared roles/playbooks: `_shared` directory, underscore prefix `_`
-- Section-specific: placed in section subdirectory (e.g., `1-bootstrap/`)
+- Section-specific: placed in section subdirectory (e.g., `01_bootstrap/`)
 
 ## Variables Naming
 
@@ -47,6 +47,20 @@ ansible/
 - Role defaults → `defaults/main.yml` in role directory
 
 ## Role Structure
+
+### Role Header
+
+Every role task file must start with a header block:
+
+```yaml
+---
+# =============================================================================
+# Role: {role_name}
+# =============================================================================
+# Brief, clear, concise description of what this role does.
+# Keep to 1-2 lines maximum.
+# =============================================================================
+```
 
 ### Task Sections
 
@@ -148,6 +162,16 @@ Use for role task sections:
 # =============================================================================
 # Section 0/4: Preconditions
 # =============================================================================
+```
+
+## Main Tasks Subsection Separators
+
+Use for Main Tasks subsections:
+
+```yaml
+# -----------------------------------------------------------------------------
+# Subsection Name
+# -----------------------------------------------------------------------------
 ```
 
 ## Best Practices

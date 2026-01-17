@@ -1,0 +1,8 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__host_init__hostname: "{{ iac__common__hostname }}"
+iac__bootstrap__host_init__timezone: "{{ iac__common__timezone }}"
+iac__bootstrap__host_init__ntp_enabled: true
+iac__bootstrap__host_init__skip: false

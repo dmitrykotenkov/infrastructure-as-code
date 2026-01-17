@@ -65,19 +65,19 @@ wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code && ./scri
 
 ### Inventory Preparation
 
-Create a new inventory from the template for your environment:
+Create a new inventory from the template for your environment (examples are provided for our "test_lab" environment):
 
 ```bash
 # Linux/WSL
-cp -r ansible/inventories/__example ansible/inventories/project_name/dev
+cp -r ansible/inventories/__example ansible/inventories/test_lab/dev
 ```
 
 ```powershell
 # PowerShell (ensure destination doesn't exist)
-Copy-Item ansible/inventories/__example ansible/inventories/project_name/dev -Recurse
+Copy-Item ansible/inventories/__example ansible/inventories/test_lab/dev -Recurse
 
 # Or use WSL from PowerShell
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code && cp -r ansible/inventories/__example ansible/inventories/project_name/dev'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code && cp -r ansible/inventories/__example ansible/inventories/test_lab/dev'
 ```
 
 **Inventory structure:**
@@ -91,12 +91,12 @@ After creating inventory, edit `hosts.yml` with your hosts, configure variables,
 
 ### Vault Preparation
 
-Vault files store encrypted secrets in `ansible/inventories/project_name/dev/group_vars/all/vault.yml`.
+Vault files store encrypted secrets in `ansible/inventories/test_lab/dev/group_vars/all/vault.yml`.
 
 **Create vault file:**
 
 After copying from `__example`, the vault file will be at:
-`ansible/inventories/project_name/dev/group_vars/all/vault.yml`
+`ansible/inventories/test_lab/dev/group_vars/all/vault.yml`
 
 Edit this file with your actual secrets before encrypting.
 
@@ -113,14 +113,14 @@ Edit this file with your actual secrets before encrypting.
 
 ```bash
 # Linux
-cd ansible && ansible-vault encrypt inventories/project_name/dev/group_vars/all/vault.yml
-cd ansible && ansible-vault decrypt inventories/project_name/dev/group_vars/all/vault.yml
+cd ansible && ansible-vault encrypt inventories/test_lab/dev/group_vars/all/vault.yml
+cd ansible && ansible-vault decrypt inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault encrypt inventories/project_name/dev/group_vars/all/vault.yml'
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault decrypt inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault encrypt inventories/test_lab/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault decrypt inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ### Bootstrap Preflight
@@ -129,15 +129,15 @@ Run preflight playbook to verify connectivity before bootstrap:
 
 ```bash
 # Linux
-cd ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass
+cd ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/00_preflight.yml -i inventories/test_lab/dev/hosts.yml --ask-vault-pass
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/1-bootstrap/_preflight.yml -i inventories/project_name/dev/hosts.yml --ask-vault-pass'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/00_preflight.yml -i inventories/test_lab/dev/hosts.yml --ask-vault-pass'
 ```
 
-_**Do not forget to adjust commands with your actual `project_name` and environment (`dev`, `prod`, etc.).**_
+_**Do not forget to adjust commands with your actual project name instead of `test_lab` and specify proper environment (`dev`, `prod`, etc.) as well.**_
 
 ---
 

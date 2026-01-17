@@ -1,3 +1,4 @@
+_iac__defaults__hostname: "{{ inventory_hostname }}"
 _iac__defaults__timezone: "UTC"
 _iac__defaults__directory_mode: "0755"
 _iac__defaults__file_mode: "0644"

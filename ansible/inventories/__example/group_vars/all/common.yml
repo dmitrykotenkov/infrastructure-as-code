@@ -1,3 +1,4 @@
+iac__common__hostname: "{{ _iac__defaults__hostname }}"
 iac__common__timezone: "{{ _iac__defaults__timezone }}"
 iac__common__directory_mode: "{{ _iac__defaults__directory_mode }}"
 iac__common__file_mode: "{{ _iac__defaults__file_mode }}"

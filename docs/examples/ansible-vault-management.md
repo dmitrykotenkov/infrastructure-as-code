@@ -6,12 +6,12 @@ _dmitrykotenkov/infrastructure-as-code repository_
 ```bash
 # Linux
 cd ansible
-ansible-vault encrypt inventories/project_name/dev/group_vars/all/vault.yml
+ansible-vault encrypt inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault encrypt inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault encrypt inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ## Decrypt Vault
@@ -19,12 +19,12 @@ wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible &
 ```bash
 # Linux
 cd ansible
-ansible-vault decrypt inventories/project_name/dev/group_vars/all/vault.yml
+ansible-vault decrypt inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault decrypt inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault decrypt inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ## View Vault (Without Decrypting)
@@ -32,12 +32,12 @@ wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible &
 ```bash
 # Linux
 cd ansible
-ansible-vault view inventories/project_name/dev/group_vars/all/vault.yml
+ansible-vault view inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault view inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault view inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ## Edit Vault
@@ -45,12 +45,12 @@ wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible &
 ```bash
 # Linux
 cd ansible
-ansible-vault edit inventories/project_name/dev/group_vars/all/vault.yml
+ansible-vault edit inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault edit inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault edit inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ## Change Vault Password
@@ -58,12 +58,12 @@ wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible &
 ```bash
 # Linux
 cd ansible
-ansible-vault rekey inventories/project_name/dev/group_vars/all/vault.yml
+ansible-vault rekey inventories/test_lab/dev/group_vars/all/vault.yml
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault rekey inventories/project_name/dev/group_vars/all/vault.yml'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ansible-vault rekey inventories/test_lab/dev/group_vars/all/vault.yml'
 ```
 
 ## Generate Secrets
