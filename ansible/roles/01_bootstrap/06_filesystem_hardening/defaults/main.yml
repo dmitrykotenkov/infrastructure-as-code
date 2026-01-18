@@ -1,0 +1,80 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__filesystem_hardening__skip: false
+
+iac__bootstrap__filesystem_hardening__harden_mounts: true
+iac__bootstrap__filesystem_hardening__mount_options:
+  # /tmp - Temporary files, high risk for attacks
+  - mount_point: /tmp
+    options: nodev,nosuid,noexec
+    enabled: true
+
+  # /var/tmp - Persistent temporary files
+  - mount_point: /var/tmp
+    options: nodev,nosuid,noexec
+    enabled: true
+
+  # /dev/shm - Shared memory, often used for malware staging
+  - mount_point: /dev/shm
+    options: nodev,nosuid,noexec
+    enabled: true
+
+  # /home - User home directories
+  - mount_point: /home
+    options: nodev,nosuid
+    enabled: true
+
+  # /var - Variable data (logs, spool, etc.)
+  - mount_point: /var
+    options: nodev,nosuid
+    enabled: true
+
+  # /boot - Boot partition (should be rarely written to)
+  - mount_point: /boot
+    options: nodev,nosuid,noexec
+    enabled: false 
+
+iac__bootstrap__filesystem_hardening__secure_permissions: true
+iac__bootstrap__filesystem_hardening__sensitive_files:
+  # User/group databases
+  - { path: "/etc/passwd", mode: "0644", owner: "root", group: "root" }
+  - { path: "/etc/shadow", mode: "0640", owner: "root", group: "shadow" }
+  - { path: "/etc/group", mode: "0644", owner: "root", group: "root" }
+  - { path: "/etc/gshadow", mode: "0640", owner: "root", group: "shadow" }
+
+  # SSH configuration
+  - { path: "/etc/ssh/sshd_config", mode: "0600", owner: "root", group: "root" }
+
+  # Sudo configuration
+  - { path: "/etc/sudoers", mode: "0440", owner: "root", group: "root" }
+
+  # Cron directories
+  - { path: "/etc/crontab", mode: "0600", owner: "root", group: "root" }
+  - { path: "/etc/cron.hourly", mode: "0700", owner: "root", group: "root" }
+  - { path: "/etc/cron.daily", mode: "0700", owner: "root", group: "root" }
+  - { path: "/etc/cron.weekly", mode: "0700", owner: "root", group: "root" }
+  - { path: "/etc/cron.monthly", mode: "0700", owner: "root", group: "root" }
+  - { path: "/etc/cron.d", mode: "0700", owner: "root", group: "root" }
+
+  # Boot configuration (if exists)
+  - { path: "/boot/grub/grub.cfg", mode: "0600", owner: "root", group: "root" }
+
+
+iac__bootstrap__filesystem_hardening__sticky_bit: true
+iac__bootstrap__filesystem_hardening__sticky_bit_dirs:
+  - /tmp
+  - /var/tmp
+
+iac__bootstrap__filesystem_hardening__disable_filesystems: true
+iac__bootstrap__filesystem_hardening__disabled_filesystems:
+  - cramfs     # Compressed ROM filesystem - rarely needed
+  - freevxfs   # Veritas filesystem - rarely needed
+  - jffs2      # Journalling Flash filesystem - rarely needed
+  - hfs        # Apple HFS - rarely needed on Linux servers
+  - hfsplus    # Apple HFS+ - rarely needed on Linux servers
+  - squashfs   # Compressed read-only filesystem - may break snaps
+  - udf        # Universal Disk Format - CD/DVD filesystem
+
+iac__bootstrap__filesystem_hardening__modprobe_config: /etc/modprobe.d/99-ansible-filesystem.conf
