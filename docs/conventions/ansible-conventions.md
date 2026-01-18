@@ -177,7 +177,7 @@ Use for Main Tasks subsections:
 ## Best Practices
 
 - Always use FQCN: `ansible.builtin.copy`, not `copy`
-- Use `changed_when: false` for read-only tasks
+- Use `changed_when: false` for read-only and validation tasks
 - Use `no_log: true` for sensitive data
 - Use `throttle: 1` for file operations to prevent race conditions
 - Validation assertions: use `quiet: true` for cleaner output

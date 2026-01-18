@@ -1,7 +1,14 @@
 ---
 # =============================================================================
+# Role: _sync_known_hosts
+# =============================================================================
+# Synchronize SSH known hosts.
+# =============================================================================
+
+# =============================================================================
 # Section 1/4: Validation
 # =============================================================================
+
 - name: Shared | Sync Known Hosts (1/4) | Validation [1/2] | Ansible port is defined and valid
   delegate_to: localhost
   become: false
@@ -29,6 +36,7 @@
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
+
 - name: Shared | Sync Known Hosts (2/4) | Main Tasks [1/8] | Set internal variables
   delegate_to: localhost
   become: false
@@ -154,6 +162,7 @@
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
+
 - name: Shared | Sync Known Hosts (4/4) | Completion Status [1/1] | Known hosts sync status
   delegate_to: localhost
   become: false

@@ -1,7 +1,14 @@
 ---
 # =============================================================================
+# Role: _ensure_ssh_key_file
+# =============================================================================
+# Provision SSH private key file from variable content.
+# =============================================================================
+
+# =============================================================================
 # Section 0/4: Preconditions
 # =============================================================================
+
 - name: Shared | Ensure SSH Key File (0/4) | Preconditions [1/1] | Determine if SSH key provisioning is required
   delegate_to: localhost
   become: false
@@ -17,6 +24,7 @@
 # =============================================================================
 # Section 1/4: Validation
 # =============================================================================
+
 - name: Shared | Ensure SSH Key File (1/4) | Validation [1/4] | SSH private key file directory is defined
   delegate_to: localhost
   become: false
@@ -81,6 +89,7 @@
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
+
 - name: Shared | Ensure SSH Key File (2/4) | Main Tasks [1/2] | Create SSH private key file directory if not exists
   delegate_to: localhost
   become: false
@@ -107,6 +116,7 @@
 # =============================================================================
 # Section 3/4: Result Validation
 # =============================================================================
+
 - name: Shared | Ensure SSH Key File (3/4) | Result Validation [1/1] | Validate SSH private key file with ssh-keygen
   delegate_to: localhost
   become: false
@@ -118,6 +128,7 @@
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
+
 - name: Shared | Ensure SSH Key File (4/4) | Completion Status [1/1] | SSH key provisioning status
   delegate_to: localhost
   become: false

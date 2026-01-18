@@ -167,7 +167,7 @@
 - name: Bootstrap | AppArmor (4/4) | Completion Status [1/1] | Display configuration summary
   ansible.builtin.debug:
     msg:
-      - "AppArmor configuration completed successfully"
+      - "  AppArmor configuration completed successfully"
       - "  Service enabled: {{ iac__bootstrap__apparmor__service_enabled | bool }}"
       - "  Profiles in enforce mode: {{ __iac__bootstrap__apparmor__enforce_count | default('unknown') }}"
       - "  Profiles in complain mode: {{ __iac__bootstrap__apparmor__complain_count | default('unknown') }}"
