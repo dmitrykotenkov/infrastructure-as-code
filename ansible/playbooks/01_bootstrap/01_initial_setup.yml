@@ -36,3 +36,7 @@
     - name: Bootstrap | Initial Setup (1/1) | Main Tasks [6/-] | 06 Filesystem Hardening
       ansible.builtin.include_role:
         name: 01_bootstrap/06_filesystem_hardening
+
+    - name: Bootstrap | Initial Setup (1/1) | Main Tasks [7/-] | 07 AppArmor
+      ansible.builtin.include_role:
+        name: 01_bootstrap/07_apparmor

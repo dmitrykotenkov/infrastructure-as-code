@@ -1,0 +1,174 @@
+---
+# =============================================================================
+# Role: 07_apparmor
+# =============================================================================
+# Configures AppArmor Mandatory Access Control (MAC) for application sandboxing.
+# Enforces security profiles that limit what applications can access.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | AppArmor (0/4) | Preconditions [1/1] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__apparmor__skip | bool
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Bootstrap | AppArmor (1/4) | Validation [1/2] | Assert packages list defined
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__apparmor__packages is defined
+      - iac__bootstrap__apparmor__packages | length > 0
+    fail_msg: "iac__bootstrap__apparmor__packages must be defined and non-empty"
+    quiet: true
+  changed_when: false
+
+- name: Bootstrap | AppArmor (1/4) | Validation [2/2] | Check if running on supported system
+  ansible.builtin.command: which apparmor_parser
+  register: __iac__bootstrap__apparmor__parser_check
+  changed_when: false
+  failed_when: false
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Package Installation
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [1/10] | Install AppArmor packages
+  ansible.builtin.apt:
+    name: "{{ iac__bootstrap__apparmor__packages }}"
+    state: present
+    update_cache: true
+  when:
+    - iac__bootstrap__apparmor__install | bool
+    - ansible_pkg_mgr == "apt"
+
+# -----------------------------------------------------------------------------
+# Service Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [2/10] | Enable AppArmor service
+  ansible.builtin.systemd:
+    name: apparmor
+    enabled: "{{ iac__bootstrap__apparmor__service_enabled | bool }}"
+    state: "{{ 'started' if iac__bootstrap__apparmor__service_enabled else 'stopped' }}"
+  when: ansible_service_mgr == "systemd"
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [3/10] | Ensure AppArmor is loaded at boot
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="apparmor=1 security=apparmor"'
+    backup: true
+  register: __iac__bootstrap__apparmor__grub_updated
+  when: iac__bootstrap__apparmor__service_enabled | bool
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [4/10] | Update GRUB configuration
+  ansible.builtin.command: update-grub
+  when:
+    - iac__bootstrap__apparmor__service_enabled | bool
+    - __iac__bootstrap__apparmor__grub_updated.changed | default(false)
+  changed_when: true
+
+# -----------------------------------------------------------------------------
+# Profile Enforcement
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [5/10] | Get list of available profiles
+  ansible.builtin.command: aa-status --json
+  register: __iac__bootstrap__apparmor__status
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [6/10] | Check if profile exists before enforcing
+  ansible.builtin.stat:
+    path: "/etc/apparmor.d/{{ item | regex_replace('/', '.') | regex_replace('^\\.', '') }}"
+  loop: "{{ iac__bootstrap__apparmor__enforced_profiles }}"
+  register: __iac__bootstrap__apparmor__profile_stats
+  when: iac__bootstrap__apparmor__enforce_profiles | bool
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [7/10] | Set profiles to enforce mode
+  ansible.builtin.command: aa-enforce {{ item.item }}
+  loop: "{{ __iac__bootstrap__apparmor__profile_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - iac__bootstrap__apparmor__enforce_profiles | bool
+    - item.stat is defined
+    - item.stat.exists | default(false)
+  register: __iac__bootstrap__apparmor__enforce_result
+  changed_when: "'Setting' in __iac__bootstrap__apparmor__enforce_result.stdout | default('')"
+  failed_when: false
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [8/10] | Set profiles to complain mode
+  ansible.builtin.command: aa-complain {{ item }}
+  loop: "{{ iac__bootstrap__apparmor__complain_profiles }}"
+  when: iac__bootstrap__apparmor__complain_profiles | length > 0
+  register: __iac__bootstrap__apparmor__complain_result
+  changed_when: "'Setting' in __iac__bootstrap__apparmor__complain_result.stdout | default('')"
+  failed_when: false
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [9/10] | Disable specified profiles
+  ansible.builtin.command: aa-disable {{ item }}
+  loop: "{{ iac__bootstrap__apparmor__disabled_profiles }}"
+  when: iac__bootstrap__apparmor__disabled_profiles | length > 0
+  register: __iac__bootstrap__apparmor__disable_result
+  changed_when: "'Disabling' in __iac__bootstrap__apparmor__disable_result.stdout | default('')"
+  failed_when: false
+
+# -----------------------------------------------------------------------------
+# Reload Profiles
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | AppArmor (2/4) | Main Tasks [10/10] | Reload all AppArmor profiles
+  ansible.builtin.command: apparmor_parser -r /etc/apparmor.d/
+  when: iac__bootstrap__apparmor__service_enabled | bool
+  register: __iac__bootstrap__apparmor__reload
+  changed_when: false
+  failed_when: false
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | AppArmor (3/4) | Result Validation [1/3] | Verify AppArmor service is running
+  ansible.builtin.systemd:
+    name: apparmor
+  register: __iac__bootstrap__apparmor__service_status
+  failed_when:
+    - iac__bootstrap__apparmor__service_enabled | bool
+    - __iac__bootstrap__apparmor__service_status.status.ActiveState != "active"
+  when: ansible_service_mgr == "systemd"
+
+- name: Bootstrap | AppArmor (3/4) | Result Validation [2/3] | Get final AppArmor status
+  ansible.builtin.command: aa-status
+  register: __iac__bootstrap__apparmor__final_status
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap | AppArmor (3/4) | Result Validation [3/3] | Parse profile counts
+  ansible.builtin.set_fact:
+    __iac__bootstrap__apparmor__enforce_count: >-
+      {{ __iac__bootstrap__apparmor__final_status.stdout | regex_search('(\d+) profiles are in enforce mode', '\1') | first | default('0') }}
+    __iac__bootstrap__apparmor__complain_count: >-
+      {{ __iac__bootstrap__apparmor__final_status.stdout | regex_search('(\d+) profiles are in complain mode', '\1') | first | default('0') }}
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | AppArmor (4/4) | Completion Status [1/1] | Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "AppArmor configuration completed successfully"
+      - "  Service enabled: {{ iac__bootstrap__apparmor__service_enabled | bool }}"
+      - "  Profiles in enforce mode: {{ __iac__bootstrap__apparmor__enforce_count | default('unknown') }}"
+      - "  Profiles in complain mode: {{ __iac__bootstrap__apparmor__complain_count | default('unknown') }}"
+      - "  Profiles configured for enforcement: {{ iac__bootstrap__apparmor__enforced_profiles | length }}"

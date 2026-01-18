@@ -1,0 +1,23 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__apparmor__skip: false
+
+iac__bootstrap__apparmor__install: true
+iac__bootstrap__apparmor__packages:
+  - apparmor
+  - apparmor-utils
+  - apparmor-profiles
+  - apparmor-profiles-extra
+
+iac__bootstrap__apparmor__service_enabled: true
+
+iac__bootstrap__apparmor__enforce_profiles: true
+iac__bootstrap__apparmor__enforced_profiles:
+  - /usr/sbin/sshd
+  - /usr/sbin/ntpd
+  - /usr/sbin/tcpdump
+
+iac__bootstrap__apparmor__complain_profiles: []
+iac__bootstrap__apparmor__disabled_profiles: []
