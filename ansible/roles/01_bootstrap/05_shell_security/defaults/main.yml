@@ -1,0 +1,19 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__shell_security__skip: false
+
+iac__bootstrap__shell_security__default_umask: "027"
+
+iac__bootstrap__shell_security__timeout: 900
+iac__bootstrap__shell_security__timeout_readonly: true
+
+iac__bootstrap__shell_security__history_timestamp: true
+iac__bootstrap__shell_security__history_timestamp_format: "%F %T "
+iac__bootstrap__shell_security__history_control: "ignoreboth"
+iac__bootstrap__shell_security__history_size: 10000
+iac__bootstrap__shell_security__history_file_size: 20000
+
+iac__bootstrap__shell_security__profile_script: /etc/profile.d/99-ansible-shell-security.sh
+iac__bootstrap__shell_security__apply_to_login_shells: true

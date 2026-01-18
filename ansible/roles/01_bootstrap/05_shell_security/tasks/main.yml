@@ -1,0 +1,157 @@
+---
+# =============================================================================
+# Role: 05_shell_security
+# =============================================================================
+# Configures secure shell defaults: umask, idle timeout, and history settings.
+# Applied system-wide via /etc/profile.d/ for all login shells.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | Shell Security (0/4) | Preconditions [1/1] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__shell_security__skip | bool
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Bootstrap | Shell Security (1/4) | Validation [1/3] | Assert umask is valid format
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__shell_security__default_umask is defined
+      - iac__bootstrap__shell_security__default_umask is match('^[0-7]{3}$')
+    fail_msg: "iac__bootstrap__shell_security__default_umask must be a valid 3-digit octal (e.g., 027)"
+    quiet: true
+  changed_when: false
+
+- name: Bootstrap | Shell Security (1/4) | Validation [2/3] | Assert timeout is non-negative
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__shell_security__timeout is defined
+      - iac__bootstrap__shell_security__timeout | int >= 0
+    fail_msg: "iac__bootstrap__shell_security__timeout must be a non-negative integer"
+    quiet: true
+  changed_when: false
+
+- name: Bootstrap | Shell Security (1/4) | Validation [3/3] | Assert profile script path defined
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__shell_security__profile_script is defined
+      - (iac__bootstrap__shell_security__profile_script | string | length) > 0
+    fail_msg: "iac__bootstrap__shell_security__profile_script must be defined and non-empty"
+    quiet: true
+  changed_when: false
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Shell Security Profile Script
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Shell Security (2/4) | Main Tasks [1/2] | Create shell security profile script
+  ansible.builtin.copy:
+    dest: "{{ iac__bootstrap__shell_security__profile_script }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      #!/bin/sh
+      # =============================================================================
+      # Managed by Ansible - Shell Security Settings
+      # =============================================================================
+      # Applied to all login shells via /etc/profile.d/
+      # Do not edit manually - changes will be overwritten
+      # =============================================================================
+      
+      # -----------------------------------------------------------------------------
+      # Umask Configuration
+      # -----------------------------------------------------------------------------
+      # {{ iac__bootstrap__shell_security__default_umask }} = files: {{ '640' if iac__bootstrap__shell_security__default_umask == '027' else ('644' if iac__bootstrap__shell_security__default_umask == '022' else '600') }}, dirs: {{ '750' if iac__bootstrap__shell_security__default_umask == '027' else ('755' if iac__bootstrap__shell_security__default_umask == '022' else '700') }}
+      umask {{ iac__bootstrap__shell_security__default_umask }}
+      
+      # -----------------------------------------------------------------------------
+      # History Configuration (bash only)
+      # -----------------------------------------------------------------------------
+      if [ -n "$BASH_VERSION" ]; then
+      {% if iac__bootstrap__shell_security__history_timestamp %}
+          # Add timestamps to bash history for audit trail
+          export HISTTIMEFORMAT="{{ iac__bootstrap__shell_security__history_timestamp_format }}"
+      {% endif %}
+          
+          # Control what gets saved to history
+          # ignoreboth = ignorespace (commands starting with space) + ignoredups (duplicates)
+          export HISTCONTROL="{{ iac__bootstrap__shell_security__history_control }}"
+          
+          # History size limits
+          export HISTSIZE={{ iac__bootstrap__shell_security__history_size }}
+          export HISTFILESIZE={{ iac__bootstrap__shell_security__history_file_size }}
+      fi
+      
+      # -----------------------------------------------------------------------------
+      # Idle Shell Timeout
+      # -----------------------------------------------------------------------------
+      {% if iac__bootstrap__shell_security__timeout > 0 %}
+      # Terminate idle shells after {{ iac__bootstrap__shell_security__timeout }} seconds ({{ (iac__bootstrap__shell_security__timeout / 60) | int }} minutes)
+      TMOUT={{ iac__bootstrap__shell_security__timeout }}
+      {% if iac__bootstrap__shell_security__timeout_readonly %}
+      # Make TMOUT readonly so users cannot disable it
+      readonly TMOUT
+      {% endif %}
+      export TMOUT
+      {% else %}
+      # Shell timeout disabled (not recommended for production)
+      {% endif %}
+  when: iac__bootstrap__shell_security__apply_to_login_shells | bool
+
+# -----------------------------------------------------------------------------
+# System-wide Umask in /etc/login.defs
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Shell Security (2/4) | Main Tasks [2/2] | Update UMASK in /etc/login.defs
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^UMASK\s+'
+    line: "UMASK           {{ iac__bootstrap__shell_security__default_umask }}"
+    state: present
+    backup: true
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | Shell Security (3/4) | Result Validation [1/3] | Verify profile script exists
+  ansible.builtin.stat:
+    path: "{{ iac__bootstrap__shell_security__profile_script }}"
+  register: __iac__bootstrap__shell_security__profile_stat
+  failed_when: not __iac__bootstrap__shell_security__profile_stat.stat.exists
+
+- name: Bootstrap | Shell Security (3/4) | Result Validation [2/3] | Verify profile script is executable context
+  ansible.builtin.command: sh -n {{ iac__bootstrap__shell_security__profile_script }}
+  register: __iac__bootstrap__shell_security__syntax_check
+  changed_when: false
+  failed_when: __iac__bootstrap__shell_security__syntax_check.rc != 0
+
+- name: Bootstrap | Shell Security (3/4) | Result Validation [3/3] | Verify umask in login.defs
+  ansible.builtin.command: grep -E '^UMASK\s+{{ iac__bootstrap__shell_security__default_umask }}' /etc/login.defs
+  register: __iac__bootstrap__shell_security__logindefs_check
+  changed_when: false
+  failed_when: __iac__bootstrap__shell_security__logindefs_check.rc != 0
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | Shell Security (4/4) | Completion Status [1/1] | Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "  Shell security configuration completed successfully"
+      - "  Default umask: {{ iac__bootstrap__shell_security__default_umask }}"
+      - "  Shell timeout: {{ iac__bootstrap__shell_security__timeout }}s ({{ (iac__bootstrap__shell_security__timeout / 60) | int }} minutes)"
+      - "  Timeout readonly: {{ iac__bootstrap__shell_security__timeout_readonly }}"
+      - "  History size: {{ iac__bootstrap__shell_security__history_size }}"
+      - "  Profile script: {{ iac__bootstrap__shell_security__profile_script }}"

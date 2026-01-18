@@ -28,3 +28,7 @@
     - name: Bootstrap | Initial Setup (1/1) | Main Tasks [4/-] | 04 Core Dumps
       ansible.builtin.include_role:
         name: 01_bootstrap/04_core_dumps
+
+    - name: Bootstrap | Initial Setup (1/1) | Main Tasks [5/-] | 05 Shell Security
+      ansible.builtin.include_role:
+        name: 01_bootstrap/05_shell_security
