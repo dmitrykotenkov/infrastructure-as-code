@@ -1,0 +1,49 @@
+---
+# =============================================================================
+# Required variables (must be set at playbook or inventory level)
+# =============================================================================
+
+# SAFETY GATE: Must be explicitly set to true to run
+iac__bootstrap__dist_upgrade__enabled: false
+
+# =============================================================================
+# Optional variables (can be set at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__dist_upgrade__skip: false
+iac__bootstrap__dist_upgrade__target_version: "24.04"
+iac__bootstrap__dist_upgrade__mode: "server"
+iac__bootstrap__dist_upgrade__prompt: "lts"
+
+iac__bootstrap__dist_upgrade__supported_paths:
+  - "22.04"  # Jammy -> Noble
+  - "20.04"  # Focal -> Jammy (then to Noble)
+  - "18.04"  # Bionic -> Focal (then to Jammy)
+
+iac__bootstrap__dist_upgrade__min_disk_gb: 10
+
+iac__bootstrap__dist_upgrade__backup_dir: "/root/dist-upgrade-backup"
+iac__bootstrap__dist_upgrade__backup_paths:
+  - /etc/ssh
+  - /etc/sudoers
+  - /etc/sudoers.d
+  - /etc/passwd
+  - /etc/shadow
+  - /etc/group
+  - /etc/fstab
+  - /etc/hosts
+  - /etc/hostname
+  - /etc/netplan
+  - /etc/network
+  - /etc/ufw
+  - /etc/fail2ban
+  - /etc/apt/sources.list
+  - /etc/apt/sources.list.d
+
+iac__bootstrap__dist_upgrade__allow_third_party: false
+iac__bootstrap__dist_upgrade__force_reboot: true
+iac__bootstrap__dist_upgrade__cleanup: true
+
+iac__bootstrap__dist_upgrade__timeout: 7200
+iac__bootstrap__dist_upgrade__reboot_timeout: 900
+iac__bootstrap__dist_upgrade__ssh_reconnect_timeout: 3600
+iac__bootstrap__dist_upgrade__unattended_timeout: 1800

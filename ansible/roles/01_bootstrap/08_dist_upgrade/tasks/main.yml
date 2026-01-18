@@ -1,0 +1,388 @@
+---
+# =============================================================================
+# Role: 08_dist_upgrade
+# =============================================================================
+# Safely upgrades Ubuntu to a newer LTS version (e.g., 22.04 -> 24.04).
+# DISABLED by default - requires explicit opt-in via enabled flag.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | Dist Upgrade (0/4) | Preconditions [1/3] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__dist_upgrade__skip | bool
+  changed_when: false
+
+- name: Bootstrap | Dist Upgrade (0/4) | Preconditions [2/3] | Display disabled message
+  ansible.builtin.debug:
+    msg: "Distribution upgrade is disabled. Set iac__bootstrap__dist_upgrade__enabled: true to enable."
+  when: not (iac__bootstrap__dist_upgrade__enabled | bool)
+  changed_when: false
+
+- name: Bootstrap | Dist Upgrade (0/4) | Preconditions [3/3] | Skip if not enabled
+  ansible.builtin.meta: end_host
+  when: not (iac__bootstrap__dist_upgrade__enabled | bool)
+  changed_when: false
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# System Information
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [1/8] | Gather OS facts
+  ansible.builtin.setup:
+    gather_subset:
+      - distribution
+      - distribution_version
+      - distribution_release
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [2/8] | Set current version facts
+  ansible.builtin.set_fact:
+    __iac__bootstrap__dist_upgrade__current_version: "{{ ansible_distribution_version }}"
+    __iac__bootstrap__dist_upgrade__current_codename: "{{ ansible_distribution_release }}"
+    __iac__bootstrap__dist_upgrade__is_ubuntu: "{{ ansible_distribution == 'Ubuntu' }}"
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [3/8] | Display current system version
+  ansible.builtin.debug:
+    msg:
+      - "Current OS: {{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_distribution_release }})"
+      - "Target version: {{ iac__bootstrap__dist_upgrade__target_version }}"
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [4/8] | Assert this is Ubuntu
+  ansible.builtin.assert:
+    that:
+      - __iac__bootstrap__dist_upgrade__is_ubuntu
+    fail_msg: "Distribution upgrade only supported on Ubuntu. Current: {{ ansible_distribution }}"
+    quiet: true
+
+# -----------------------------------------------------------------------------
+# Version Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [5/8] | Check if upgrade is needed
+  ansible.builtin.set_fact:
+    __iac__bootstrap__dist_upgrade__needed: >-
+      {{ __iac__bootstrap__dist_upgrade__current_version is version(iac__bootstrap__dist_upgrade__target_version, '<') }}
+  
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [6/8] | Skip if already at target
+  when: not __iac__bootstrap__dist_upgrade__needed
+  block:
+    - name: Bootstrap | Dist Upgrade (1/4) | Validation [6a/8] | Display skip message
+      ansible.builtin.debug:
+        msg: "System already at {{ __iac__bootstrap__dist_upgrade__current_version }}. Skipping."
+
+    - name: Bootstrap | Dist Upgrade (1/4) | Validation [6b/8] | End play - no upgrade needed
+      ansible.builtin.meta: end_host
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [7/8] | Assert upgrade path supported
+  ansible.builtin.assert:
+    that:
+      - __iac__bootstrap__dist_upgrade__current_version in iac__bootstrap__dist_upgrade__supported_paths
+    fail_msg: |
+      Unsupported upgrade path from {{ __iac__bootstrap__dist_upgrade__current_version }}.
+      Supported: {{ iac__bootstrap__dist_upgrade__supported_paths | join(', ') }}
+    quiet: true
+
+# -----------------------------------------------------------------------------
+# Disk Space Check
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (1/4) | Validation [8/8] | Check available disk space
+  ansible.builtin.shell: df --output=avail -BG / | tail -1 | tr -d ' G'
+  register: __iac__bootstrap__dist_upgrade__disk_space
+  changed_when: false
+  failed_when: (__iac__bootstrap__dist_upgrade__disk_space.stdout | int) < iac__bootstrap__dist_upgrade__min_disk_gb
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Pre-flight Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [1/29] | Check for held packages
+  ansible.builtin.shell: dpkg --get-selections | grep hold | cut -f1 || true
+  register: __iac__bootstrap__dist_upgrade__held_packages
+  changed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [2/29] | Warn about held packages
+  ansible.builtin.debug:
+    msg: "WARNING: Held packages may cause issues: {{ __iac__bootstrap__dist_upgrade__held_packages.stdout_lines }}"
+  when: __iac__bootstrap__dist_upgrade__held_packages.stdout | length > 0
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [3/29] | Wait for unattended-upgrades (async)
+  ansible.builtin.shell: |
+    timeout {{ iac__bootstrap__dist_upgrade__unattended_timeout }} bash -c '
+      while pgrep -f unattended-upgrade > /dev/null 2>&1; do
+        sleep 30
+      done
+    ' || true
+  async: "{{ iac__bootstrap__dist_upgrade__unattended_timeout + 60 }}"
+  poll: 0
+  register: __iac__bootstrap__dist_upgrade__unattended_job
+  changed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [4/29] | Wait for SSH connectivity
+  ansible.builtin.wait_for_connection:
+    delay: 5
+    timeout: "{{ iac__bootstrap__dist_upgrade__ssh_reconnect_timeout }}"
+  when: __iac__bootstrap__dist_upgrade__unattended_job is defined
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [5/29] | Reset SSH connection
+  ansible.builtin.meta: reset_connection
+  when: __iac__bootstrap__dist_upgrade__unattended_job is defined
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [6/29] | Check unattended-upgrade wait completed
+  ansible.builtin.async_status:
+    jid: "{{ __iac__bootstrap__dist_upgrade__unattended_job.ansible_job_id }}"
+  register: __iac__bootstrap__dist_upgrade__unattended_result
+  until: __iac__bootstrap__dist_upgrade__unattended_result.finished
+  retries: "{{ ((iac__bootstrap__dist_upgrade__unattended_timeout | int) / 30) | int + 5 }}"
+  delay: 30
+  when: __iac__bootstrap__dist_upgrade__unattended_job.ansible_job_id is defined
+  failed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [7/29] | Force kill hung unattended-upgrade
+  ansible.builtin.shell: pkill -9 -f unattended-upgrade || true
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [8/29] | Wait for APT locks to release
+  ansible.builtin.shell: |
+    timeout 300 bash -c '
+      while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+        sleep 5
+      done
+    ' || true
+  changed_when: false
+  failed_when: false
+
+# -----------------------------------------------------------------------------
+# Backup Critical Files
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [9/29] | Create backup directory
+  ansible.builtin.file:
+    path: "{{ iac__bootstrap__dist_upgrade__backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [10/29] | Set backup timestamp
+  ansible.builtin.set_fact:
+    __iac__bootstrap__dist_upgrade__backup_ts: "{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [11/29] | Backup configuration files
+  ansible.builtin.archive:
+    path: "{{ iac__bootstrap__dist_upgrade__backup_paths }}"
+    dest: "{{ iac__bootstrap__dist_upgrade__backup_dir }}/pre-upgrade-{{ __iac__bootstrap__dist_upgrade__backup_ts }}.tar.gz"
+    format: gz
+  failed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [12/29] | Save package list
+  ansible.builtin.shell: |
+    dpkg --get-selections > {{ iac__bootstrap__dist_upgrade__backup_dir }}/packages-{{ __iac__bootstrap__dist_upgrade__backup_ts }}.list
+  changed_when: false
+
+# -----------------------------------------------------------------------------
+# Prepare System
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [13/29] | Update APT cache
+  ansible.builtin.apt:
+    update_cache: true
+    lock_timeout: 600
+  retries: 3
+  delay: 30
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [14/29] | Perform full upgrade first
+  ansible.builtin.apt:
+    upgrade: full
+    lock_timeout: 1800
+    dpkg_options: "force-confdef,force-confold"
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  retries: 2
+  delay: 60
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [15/29] | Remove unnecessary packages
+  ansible.builtin.apt:
+    autoremove: true
+    purge: true
+    lock_timeout: 600
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [16/29] | Install update-manager-core
+  ansible.builtin.apt:
+    name: update-manager-core
+    state: present
+    lock_timeout: 600
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [17/29] | Configure release-upgrades
+  ansible.builtin.lineinfile:
+    path: /etc/update-manager/release-upgrades
+    regexp: '^Prompt='
+    line: "Prompt={{ iac__bootstrap__dist_upgrade__prompt }}"
+    create: true
+    mode: "0644"
+
+# -----------------------------------------------------------------------------
+# Pre-upgrade Reboot
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [18/29] | Check if pre-upgrade reboot needed
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: __iac__bootstrap__dist_upgrade__reboot_pre
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [19/29] | Reboot before dist-upgrade
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ iac__bootstrap__dist_upgrade__reboot_timeout }}"
+    msg: "Rebooting before distribution upgrade"
+  when: __iac__bootstrap__dist_upgrade__reboot_pre.stat.exists
+
+# -----------------------------------------------------------------------------
+# Run Distribution Upgrade
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [20/29] | Display upgrade warning
+  ansible.builtin.debug:
+    msg:
+      - "════════════════════════════════════════════════════════════════"
+      - "  STARTING DISTRIBUTION UPGRADE"
+      - "  From: Ubuntu {{ __iac__bootstrap__dist_upgrade__current_version }} -> {{ iac__bootstrap__dist_upgrade__target_version }}"
+      - "  This may take 30-60 minutes. Do not interrupt."
+      - "════════════════════════════════════════════════════════════════"
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [21/29] | Run do-release-upgrade
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    LOGFILE="{{ iac__bootstrap__dist_upgrade__backup_dir }}/upgrade-{{ __iac__bootstrap__dist_upgrade__backup_ts }}.log"
+    do-release-upgrade -f DistUpgradeViewNonInteractive \
+      --mode={{ iac__bootstrap__dist_upgrade__mode }} \
+      2>&1 | tee "$LOGFILE"
+    exit ${PIPESTATUS[0]}
+  args:
+    executable: /bin/bash
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    RELEASE_UPGRADER_ALLOW_THIRD_PARTY: "{{ iac__bootstrap__dist_upgrade__allow_third_party | ternary('1', '0') }}"
+  async: "{{ iac__bootstrap__dist_upgrade__timeout }}"
+  poll: 0
+  register: __iac__bootstrap__dist_upgrade__job
+
+# -----------------------------------------------------------------------------
+# Handle Reconnection
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [22/29] | Wait for SSH recovery
+  ansible.builtin.wait_for_connection:
+    delay: 60
+    timeout: "{{ iac__bootstrap__dist_upgrade__ssh_reconnect_timeout }}"
+    sleep: 30
+  failed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [23/29] | Reset SSH connection
+  ansible.builtin.meta: reset_connection
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [24/29] | Discover new Python interpreter
+  ansible.builtin.raw: |
+    for p in /usr/bin/python3 /usr/bin/python /usr/bin/python3.12 /usr/bin/python3.11; do
+      if [ -x "$p" ]; then echo "$p"; exit 0; fi
+    done
+    echo "/usr/bin/python3"
+  register: __iac__bootstrap__dist_upgrade__python_path
+  changed_when: false
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [25/29] | Set new Python interpreter
+  ansible.builtin.set_fact:
+    ansible_python_interpreter: "{{ __iac__bootstrap__dist_upgrade__python_path.stdout | trim }}"
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [26/29] | Wait for upgrade job
+  ansible.builtin.async_status:
+    jid: "{{ __iac__bootstrap__dist_upgrade__job.ansible_job_id }}"
+  register: __iac__bootstrap__dist_upgrade__job_result
+  until: __iac__bootstrap__dist_upgrade__job_result.finished
+  retries: "{{ (iac__bootstrap__dist_upgrade__timeout / 60) | int }}"
+  delay: 60
+  when: __iac__bootstrap__dist_upgrade__job.ansible_job_id is defined
+  failed_when: false
+
+# -----------------------------------------------------------------------------
+# Post-upgrade Reboot
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [27/29] | Check if post-upgrade reboot needed
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: __iac__bootstrap__dist_upgrade__reboot_post
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [28/29] | Reboot after dist-upgrade
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ iac__bootstrap__dist_upgrade__reboot_timeout }}"
+    msg: "Rebooting after distribution upgrade"
+  when: __iac__bootstrap__dist_upgrade__reboot_post.stat.exists | default(false) or iac__bootstrap__dist_upgrade__force_reboot
+
+# -----------------------------------------------------------------------------
+# Post-upgrade Cleanup
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [29/29] | Run post-upgrade cleanup
+  when: iac__bootstrap__dist_upgrade__cleanup | bool
+  block:
+    - name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [29a/29] | Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+        lock_timeout: 600
+
+    - name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [29b/29] | Remove old packages
+      ansible.builtin.apt:
+        autoremove: true
+        purge: true
+        lock_timeout: 600
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | Dist Upgrade (3/4) | Result Validation [1/3] | Gather new OS facts
+  ansible.builtin.setup:
+    gather_subset:
+      - distribution
+      - distribution_version
+
+- name: Bootstrap | Dist Upgrade (3/4) | Result Validation [2/3] | Verify upgrade succeeded
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution_version is version(iac__bootstrap__dist_upgrade__target_version, '>=')
+    fail_msg: |
+      Distribution upgrade may have failed.
+      Expected: {{ iac__bootstrap__dist_upgrade__target_version }}
+      Actual: {{ ansible_distribution_version }}
+      Check logs at: {{ iac__bootstrap__dist_upgrade__backup_dir }}
+    quiet: true
+
+- name: Bootstrap | Dist Upgrade (3/4) | Result Validation [3/3] | Verify system is bootable
+  ansible.builtin.command: systemctl is-system-running
+  register: __iac__bootstrap__dist_upgrade__system_status
+  changed_when: false
+  failed_when: false
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | Dist Upgrade (4/4) | Completion Status [1/1] | Display upgrade summary
+  ansible.builtin.debug:
+    msg:
+      - "  Distribution upgrade completed successfully"
+      - "  Previous version: {{ __iac__bootstrap__dist_upgrade__current_version }}"
+      - "  Current version: {{ ansible_distribution_version }}"
+      - "  System status: {{ __iac__bootstrap__dist_upgrade__system_status.stdout | default('unknown') }}"
+      - "  Backup location: {{ iac__bootstrap__dist_upgrade__backup_dir }}"

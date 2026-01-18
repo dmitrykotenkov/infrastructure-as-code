@@ -74,7 +74,6 @@ iac__bootstrap__filesystem_hardening__disabled_filesystems:
   - jffs2      # Journalling Flash filesystem - rarely needed
   - hfs        # Apple HFS - rarely needed on Linux servers
   - hfsplus    # Apple HFS+ - rarely needed on Linux servers
-  - squashfs   # Compressed read-only filesystem - may break snaps
   - udf        # Universal Disk Format - CD/DVD filesystem
 
 iac__bootstrap__filesystem_hardening__modprobe_config: /etc/modprobe.d/99-ansible-filesystem.conf
