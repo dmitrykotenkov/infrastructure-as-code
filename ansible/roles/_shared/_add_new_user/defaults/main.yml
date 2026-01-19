@@ -1,0 +1,32 @@
+---
+# =============================================================================
+# Required variables (must be set at playbook or inventory level)
+# =============================================================================
+
+iac__shared__add_new_user__username: ~
+iac__shared__add_new_user__ssh_public_key: ~
+
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__shared__add_new_user__skip: false
+
+iac__shared__add_new_user__password: ~
+iac__shared__add_new_user__sudo: false
+iac__shared__add_new_user__sudo_nopasswd: false
+# Sudoers drop-in file priority (lower = higher priority)
+iac__shared__add_new_user__sudoers_priority: "90"
+iac__shared__add_new_user__shell: "/bin/bash"
+# Home directory (default: /home/{username})
+# Set to ~ to use default
+iac__shared__add_new_user__home: ~
+iac__shared__add_new_user__create_home: true
+iac__shared__add_new_user__groups: []
+iac__shared__add_new_user__home_directory_mode: "{{ iac__common__home_directory_mode }}"
+iac__shared__add_new_user__ssh_dir_mode: "{{ iac__common__ssh_directory_mode }}"
+iac__shared__add_new_user__authorized_keys_mode: "{{ iac__common__ssh_file_mode }}"
+# SSH key management mode: "add" (append) or "replace" (exclusive)
+iac__shared__add_new_user__ssh_key_mode: "add"
+iac__shared__add_new_user__force_password_update: false
+iac__shared__add_new_user__system: false
+iac__shared__add_new_user__comment: ~

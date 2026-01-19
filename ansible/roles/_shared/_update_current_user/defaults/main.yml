@@ -1,0 +1,22 @@
+---
+# =============================================================================
+# Required variables (must be set at playbook or inventory level)
+# =============================================================================
+
+iac__shared__update_current_user__password: ~
+iac__shared__update_current_user__ssh_public_key: ~
+
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__shared__update_current_user__skip: false
+
+iac__shared__update_current_user__lock_password: false
+iac__shared__update_current_user__force_password_update: true
+# SSH key management mode: "add" (append) or "replace" (exclusive)
+iac__shared__update_current_user__ssh_key_mode: "add"
+# User shell (set to ~ to leave unchanged)
+iac__shared__update_current_user__shell: ~
+iac__shared__update_current_user__home_directory_mode: ~
+iac__shared__update_current_user__ssh_directory_mode: "{{ iac__common__ssh_directory_mode }}"
+iac__shared__update_current_user__authorized_keys_mode: "{{ iac__common__ssh_file_mode }}"

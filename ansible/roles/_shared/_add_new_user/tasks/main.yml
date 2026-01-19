@@ -1,0 +1,204 @@
+---
+# =============================================================================
+# Role: _add_new_user
+# =============================================================================
+# Creates a new user with SSH key authentication and optional sudo access.
+# Reusable role - all configuration via variables at playbook level.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Shared | Add New User (0/4) | Preconditions [1/1] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__shared__add_new_user__skip | bool
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Shared | Add New User (1/4) | Validation [1/3] | Assert required variables
+  ansible.builtin.assert:
+    that:
+      - iac__shared__add_new_user__username is not none
+      - (iac__shared__add_new_user__username | string | length) > 0
+      - iac__shared__add_new_user__ssh_public_key is not none
+      - (iac__shared__add_new_user__ssh_public_key | string | length) > 0
+    fail_msg: |
+      Missing required variables for new user:
+      - iac__shared__add_new_user__username: Username (required)
+      - iac__shared__add_new_user__ssh_public_key: SSH public key (required)
+    quiet: true
+  changed_when: false
+
+- name: Shared | Add New User (1/4) | Validation [2/3] | Set derived variables
+  ansible.builtin.set_fact:
+    __iac__shared__add_new_user__home: >-
+      {{ iac__shared__add_new_user__home | default('/home/' ~ iac__shared__add_new_user__username, true) }}
+    __iac__shared__add_new_user__password_defined: >-
+      {{ iac__shared__add_new_user__password is not none and
+         (iac__shared__add_new_user__password | string | length) > 0 }}
+
+- name: Shared | Add New User (1/4) | Validation [3/3] | Build groups list
+  ansible.builtin.set_fact:
+    __iac__shared__add_new_user__all_groups: >-
+      {{ (['sudo'] if iac__shared__add_new_user__sudo | bool else []) +
+         (iac__shared__add_new_user__groups | default([])) }}
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# User Creation
+# -----------------------------------------------------------------------------
+
+- name: Shared | Add New User (2/4) | Main Tasks [1/10] | Create user account
+  ansible.builtin.user:
+    name: "{{ iac__shared__add_new_user__username }}"
+    groups: "{{ __iac__shared__add_new_user__all_groups | join(',') if __iac__shared__add_new_user__all_groups | length > 0 else omit }}"
+    append: true
+    shell: "{{ iac__shared__add_new_user__shell }}"
+    home: "{{ __iac__shared__add_new_user__home }}"
+    create_home: "{{ iac__shared__add_new_user__create_home }}"
+    system: "{{ iac__shared__add_new_user__system }}"
+    comment: "{{ iac__shared__add_new_user__comment | default(omit, true) }}"
+    state: present
+
+# -----------------------------------------------------------------------------
+# Password Configuration
+# -----------------------------------------------------------------------------
+
+- name: Shared | Add New User (2/4) | Main Tasks [2/10] | Compute password hash salt
+  ansible.builtin.set_fact:
+    __iac__shared__add_new_user__salt: >-
+      {{ (inventory_hostname ~ '_' ~ iac__shared__add_new_user__username) | hash('sha1') | truncate(16, True, '') }}
+  when: __iac__shared__add_new_user__password_defined | bool
+  no_log: true
+
+- name: Shared | Add New User (2/4) | Main Tasks [3/10] | Set user password
+  ansible.builtin.user:
+    name: "{{ iac__shared__add_new_user__username }}"
+    password: "{{ iac__shared__add_new_user__password | password_hash('sha512', __iac__shared__add_new_user__salt) }}"
+    update_password: "{{ iac__shared__add_new_user__force_password_update | ternary('always', 'on_create') }}"
+  when: __iac__shared__add_new_user__password_defined | bool
+  no_log: true
+
+# -----------------------------------------------------------------------------
+# Home Directory Security
+# -----------------------------------------------------------------------------
+
+- name: Shared | Add New User (2/4) | Main Tasks [4/10] | Set home directory permissions
+  ansible.builtin.file:
+    path: "{{ __iac__shared__add_new_user__home }}"
+    owner: "{{ iac__shared__add_new_user__username }}"
+    group: "{{ iac__shared__add_new_user__username }}"
+    mode: "{{ iac__shared__add_new_user__home_directory_mode }}"
+    state: directory
+  when: iac__shared__add_new_user__create_home | bool
+
+# -----------------------------------------------------------------------------
+# SSH Key Configuration
+# -----------------------------------------------------------------------------
+
+- name: Shared | Add New User (2/4) | Main Tasks [5/10] | Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ __iac__shared__add_new_user__home }}/.ssh"
+    state: directory
+    owner: "{{ iac__shared__add_new_user__username }}"
+    group: "{{ iac__shared__add_new_user__username }}"
+    mode: "{{ iac__shared__add_new_user__ssh_dir_mode }}"
+
+- name: Shared | Add New User (2/4) | Main Tasks [6/10] | Install SSH public key
+  ansible.posix.authorized_key:
+    user: "{{ iac__shared__add_new_user__username }}"
+    key: "{{ iac__shared__add_new_user__ssh_public_key }}"
+    state: present
+    manage_dir: false
+    exclusive: "{{ iac__shared__add_new_user__ssh_key_mode == 'replace' }}"
+
+- name: Shared | Add New User (2/4) | Main Tasks [7/10] | Set authorized_keys permissions
+  ansible.builtin.file:
+    path: "{{ __iac__shared__add_new_user__home }}/.ssh/authorized_keys"
+    owner: "{{ iac__shared__add_new_user__username }}"
+    group: "{{ iac__shared__add_new_user__username }}"
+    mode: "{{ iac__shared__add_new_user__authorized_keys_mode }}"
+
+# -----------------------------------------------------------------------------
+# Sudo Configuration
+# -----------------------------------------------------------------------------
+
+- name: Shared | Add New User (2/4) | Main Tasks [8/10] | Configure passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ iac__shared__add_new_user__sudoers_priority }}-{{ iac__shared__add_new_user__username }}-nopasswd"
+    owner: root
+    group: root
+    mode: "0440"
+    content: |
+      # Managed by Ansible
+      {{ iac__shared__add_new_user__username }} ALL=(ALL) NOPASSWD:ALL
+    validate: "visudo -cf %s"
+  when:
+    - iac__shared__add_new_user__sudo | bool
+    - iac__shared__add_new_user__sudo_nopasswd | bool
+
+- name: Shared | Add New User (2/4) | Main Tasks [9/10] | Remove NOPASSWD sudoers if not needed
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/{{ iac__shared__add_new_user__sudoers_priority }}-{{ iac__shared__add_new_user__username }}-nopasswd"
+    state: absent
+  when: not (iac__shared__add_new_user__sudo | bool and iac__shared__add_new_user__sudo_nopasswd | bool)
+
+- name: Shared | Add New User (2/4) | Main Tasks [10/10] | Remove from sudo group if not needed
+  ansible.builtin.user:
+    name: "{{ iac__shared__add_new_user__username }}"
+    groups: "{{ iac__shared__add_new_user__groups | default([]) | join(',') }}"
+    append: false
+  when: not (iac__shared__add_new_user__sudo | bool)
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Shared | Add New User (3/4) | Result Validation [1/4] | Verify user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ iac__shared__add_new_user__username }}"
+  register: __iac__shared__add_new_user__getent
+
+- name: Shared | Add New User (3/4) | Result Validation [2/4] | Verify user in sudo group
+  ansible.builtin.command: "groups {{ iac__shared__add_new_user__username }}"
+  register: __iac__shared__add_new_user__groups_check
+  changed_when: false
+  failed_when: iac__shared__add_new_user__sudo | bool and 'sudo' not in __iac__shared__add_new_user__groups_check.stdout
+  when: iac__shared__add_new_user__sudo | bool
+
+- name: Shared | Add New User (3/4) | Result Validation [3/4] | Verify SSH key installed
+  ansible.builtin.stat:
+    path: "{{ __iac__shared__add_new_user__home }}/.ssh/authorized_keys"
+  register: __iac__shared__add_new_user__authkeys
+
+- name: Shared | Add New User (3/4) | Result Validation [4/4] | Assert SSH key file exists
+  ansible.builtin.assert:
+    that:
+      - __iac__shared__add_new_user__authkeys.stat.exists
+      - __iac__shared__add_new_user__authkeys.stat.size > 0
+    fail_msg: "SSH authorized_keys file missing or empty for {{ iac__shared__add_new_user__username }}"
+    quiet: true
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Shared | Add New User (4/4) | Completion Status [1/1] | Display user summary
+  ansible.builtin.debug:
+    msg:
+      - "  New user created successfully"
+      - "  Username: {{ iac__shared__add_new_user__username }}"
+      - "  Home: {{ __iac__shared__add_new_user__home }}"
+      - "  Shell: {{ iac__shared__add_new_user__shell }}"
+      - "  Groups: {{ __iac__shared__add_new_user__all_groups | join(', ') | default('none', true) }}"
+      - "  Sudo: {{ iac__shared__add_new_user__sudo | ternary('yes', 'no') }}"
+      - "  Sudo NOPASSWD: {{ (iac__shared__add_new_user__sudo and iac__shared__add_new_user__sudo_nopasswd) | ternary('yes', 'no') }}"
+      - "  Password set: {{ __iac__shared__add_new_user__password_defined | bool | ternary('yes', 'no') }}"
+      - "  SSH key installed: yes"

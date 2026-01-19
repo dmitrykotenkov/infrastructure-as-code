@@ -46,4 +46,4 @@ iac__bootstrap__dist_upgrade__cleanup: true
 iac__bootstrap__dist_upgrade__timeout: 7200
 iac__bootstrap__dist_upgrade__reboot_timeout: 900
 iac__bootstrap__dist_upgrade__ssh_reconnect_timeout: 3600
-iac__bootstrap__dist_upgrade__unattended_timeout: 1800
+iac__bootstrap__dist_upgrade__unattended_timeout: 7200

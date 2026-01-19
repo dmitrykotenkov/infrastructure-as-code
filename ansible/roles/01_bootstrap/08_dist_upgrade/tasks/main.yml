@@ -143,7 +143,7 @@
     jid: "{{ __iac__bootstrap__dist_upgrade__unattended_job.ansible_job_id }}"
   register: __iac__bootstrap__dist_upgrade__unattended_result
   until: __iac__bootstrap__dist_upgrade__unattended_result.finished
-  retries: "{{ ((iac__bootstrap__dist_upgrade__unattended_timeout | int) / 30) | int + 5 }}"
+  retries: "{{ ((iac__bootstrap__dist_upgrade__unattended_timeout | int) / 30) | int }}"
   delay: 30
   when: __iac__bootstrap__dist_upgrade__unattended_job.ansible_job_id is defined
   failed_when: false

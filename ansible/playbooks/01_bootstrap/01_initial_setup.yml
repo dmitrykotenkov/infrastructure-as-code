@@ -6,6 +6,7 @@
   hosts: bootstrap_targets
   gather_facts: false
   become: true
+  tags: ['bootstrap', 'initial_setup']
   vars:
     ansible_become: true
     ansible_become_method: sudo
@@ -13,36 +14,66 @@
     - "{{ playbook_dir }}/vars/initial_ssh_auth.yml"
 
   tasks:
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [1/-] | 01 Host Init
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [1/8] | 01 Host Init
       ansible.builtin.include_role:
         name: 01_bootstrap/01_host_init
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [2/-] | 02 Packages
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [2/8] | 02 Packages
       ansible.builtin.include_role:
         name: 01_bootstrap/02_packages
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [3/-] | 03 sysctl Hardening
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [3/8] | 03 sysctl Hardening
       ansible.builtin.include_role:
         name: 01_bootstrap/03_sysctl_hardening
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [4/-] | 04 Core Dumps
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [4/8] | 04 Core Dumps
       ansible.builtin.include_role:
         name: 01_bootstrap/04_core_dumps
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [5/-] | 05 Shell Security
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [5/8] | 05 Shell Security
       ansible.builtin.include_role:
         name: 01_bootstrap/05_shell_security
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [6/-] | 06 Filesystem Hardening
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [6/8] | 06 Filesystem Hardening
       ansible.builtin.include_role:
         name: 01_bootstrap/06_filesystem_hardening
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [7/-] | 07 AppArmor
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [7/8] | 07 AppArmor
       ansible.builtin.include_role:
         name: 01_bootstrap/07_apparmor
 
-    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [8/-] | 08 Dist Upgrade
+    - name: Bootstrap | Initial Setup (1/-) | Main Tasks [8/8] | 08 Dist Upgrade
       ansible.builtin.include_role:
         name: 01_bootstrap/08_dist_upgrade
       vars:
         iac__bootstrap__dist_upgrade__enabled: true
+
+- name: Bootstrap | User Setup (2/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'user_setup']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+  vars_files:
+    - "{{ playbook_dir }}/vars/initial_ssh_auth.yml"
+
+  tasks:
+    - name: Bootstrap | User Setup (2/-) | Main Tasks [1/2] | Add New User
+      ansible.builtin.include_role:
+        name: _shared/_add_new_user
+      vars:
+        iac__shared__add_new_user__username: "{{ vault__ansible_user__list.get(inventory_hostname) }}"
+        iac__shared__add_new_user__password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
+        iac__shared__add_new_user__ssh_public_key: "{{ vault__ansible_user_ssh_public_key__list.get(inventory_hostname) }}"
+        iac__shared__add_new_user__sudo: true
+        iac__shared__add_new_user__sudo_nopasswd: true
+
+    - name: Bootstrap | User Setup (2/-) | Main Tasks [2/2] | Update Current User
+      ansible.builtin.include_role:
+        name: _shared/_update_current_user
+      vars:
+        iac__shared__update_current_user__password: "{{ vault__initial_ansible_user_password__list.get(inventory_hostname) }}"
+        iac__shared__update_current_user__ssh_public_key: "{{ vault__initial_ansible_user_ssh_public_key__list.get(inventory_hostname) }}"
+
