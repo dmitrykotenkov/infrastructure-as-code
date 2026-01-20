@@ -1,0 +1,63 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__fail2ban__skip: false
+
+iac__bootstrap__fail2ban__remove: false
+
+# SSH port to monitor (must match actual SSH port)
+iac__bootstrap__fail2ban__ssh_port: "{{ iac__common__ssh_port }}"
+# Maximum failed attempts before ban
+iac__bootstrap__fail2ban__ssh_maxretry: 3
+# Time window to count failures (supports s/m/h/d/w suffixes)
+iac__bootstrap__fail2ban__ssh_findtime: "4h"
+# Ban duration (supports s/m/h/d/w suffixes, -1 for permanent)
+iac__bootstrap__fail2ban__ssh_bantime: "1w"
+# Ban action (iptables, iptables-multiport, iptables-allports, ufw, nftables)
+iac__bootstrap__fail2ban__ssh_banaction: "ufw"
+
+# Default ban time for all jails
+iac__bootstrap__fail2ban__default_bantime: "1h"
+# Default find time for all jails
+iac__bootstrap__fail2ban__default_findtime: "10m"
+# Default max retry for all jails
+iac__bootstrap__fail2ban__default_maxretry: 5
+
+# Ignore (whitelist) these IP addresses/networks
+# Example: ["127.0.0.1/8", "192.168.1.0/24"]
+iac__bootstrap__fail2ban__ignoreip: []
+
+# Enable nginx jails (requires nginx logs)
+iac__bootstrap__fail2ban__nginx_enabled: false
+# Nginx HTTP auth jail
+iac__bootstrap__fail2ban__nginx_http_auth_maxretry: 3
+iac__bootstrap__fail2ban__nginx_http_auth_findtime: "1h"
+iac__bootstrap__fail2ban__nginx_http_auth_bantime: "1d"
+# Nginx botsearch jail (blocks scanners)
+iac__bootstrap__fail2ban__nginx_botsearch_maxretry: 2
+iac__bootstrap__fail2ban__nginx_botsearch_findtime: "1d"
+iac__bootstrap__fail2ban__nginx_botsearch_bantime: "1w"
+
+# Additional custom jail configurations
+# Format: list of jail config dicts
+# Example:
+#   iac__bootstrap__fail2ban__custom_jails:
+#     - name: myapp
+#       enabled: true
+#       port: 8080
+#       filter: myapp
+#       logpath: /var/log/myapp/access.log
+#       maxretry: 5
+#       findtime: 10m
+#       bantime: 1h
+iac__bootstrap__fail2ban__custom_jails: []
+
+# Send email notifications on ban (requires mail configured)
+iac__bootstrap__fail2ban__send_email: false
+# Destination email for notifications
+iac__bootstrap__fail2ban__dest_email: "root@localhost"
+# Sender email address
+iac__bootstrap__fail2ban__sender_email: "fail2ban@localhost"
+# Email action (mail, sendmail, mail-whois)
+iac__bootstrap__fail2ban__mail_action: "mail"

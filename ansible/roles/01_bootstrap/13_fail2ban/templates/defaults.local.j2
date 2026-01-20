@@ -1,0 +1,29 @@
+#
+# Managed by Ansible - Fail2Ban Default Settings
+#
+
+[DEFAULT]
+# Default ban settings
+bantime  = {{ iac__bootstrap__fail2ban__default_bantime }}
+findtime = {{ iac__bootstrap__fail2ban__default_findtime }}
+maxretry = {{ iac__bootstrap__fail2ban__default_maxretry }}
+
+# Ban action (ufw for Ubuntu with UFW firewall)
+banaction = {{ iac__bootstrap__fail2ban__ssh_banaction }}
+banaction_allports = {{ iac__bootstrap__fail2ban__ssh_banaction }}
+
+{% if iac__bootstrap__fail2ban__ignoreip | length > 0 %}
+# Whitelisted IPs/networks
+ignoreip = 127.0.0.1/8 ::1 {{ iac__bootstrap__fail2ban__ignoreip | join(' ') }}
+{% else %}
+# Whitelisted IPs/networks
+ignoreip = 127.0.0.1/8 ::1
+{% endif %}
+
+{% if iac__bootstrap__fail2ban__send_email | bool %}
+# Email notifications
+destemail = {{ iac__bootstrap__fail2ban__dest_email }}
+sender    = {{ iac__bootstrap__fail2ban__sender_email }}
+mta       = sendmail
+action    = %(action_mwl)s
+{% endif %}

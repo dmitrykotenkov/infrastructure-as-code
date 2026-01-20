@@ -1,0 +1,13 @@
+#
+# Managed by Ansible - SSH Jail Configuration
+#
+
+[sshd]
+enabled  = true
+port     = {{ iac__bootstrap__fail2ban__ssh_port }}
+filter   = sshd
+logpath  = /var/log/auth.log
+backend  = systemd
+maxretry = {{ iac__bootstrap__fail2ban__ssh_maxretry }}
+findtime = {{ iac__bootstrap__fail2ban__ssh_findtime }}
+bantime  = {{ iac__bootstrap__fail2ban__ssh_bantime }}

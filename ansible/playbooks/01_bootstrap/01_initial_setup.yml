@@ -209,6 +209,11 @@
       ansible.builtin.include_role:
         name: _shared/_refresh_connection
   tasks:
-    - name: Bootstrap | Auditd Setup (12/-) | Main Tasks [1/1] | 14 Auditd Setup
+    - name: Bootstrap | Auditd Setup (12/-) | Main Tasks [1/-] | 14 Auditd Setup
       ansible.builtin.include_role:
         name: 01_bootstrap/12_auditd
+    - name: Bootstrap | Fail2Ban Setup (12/-) | Main Tasks [2/-] | 15 Fail2Ban Setup
+      ansible.builtin.include_role:
+        name: 01_bootstrap/13_fail2ban
+      vars:
+        iac__bootstrap__fail2ban__ssh_port: "{{ ansible_port }}"

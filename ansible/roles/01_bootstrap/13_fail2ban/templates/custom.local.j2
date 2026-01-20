@@ -1,0 +1,18 @@
+#
+# Managed by Ansible - Custom Jail Configuration
+#
+
+{% for jail in iac__bootstrap__fail2ban__custom_jails %}
+[{{ jail.name }}]
+enabled  = {{ jail.enabled | default(true) | ternary('true', 'false') }}
+port     = {{ jail.port }}
+filter   = {{ jail.filter }}
+logpath  = {{ jail.logpath }}
+maxretry = {{ jail.maxretry | default(5) }}
+findtime = {{ jail.findtime | default('10m') }}
+bantime  = {{ jail.bantime | default('1h') }}
+{% if jail.backend is defined %}
+backend  = {{ jail.backend }}
+{% endif %}
+
+{% endfor %}
