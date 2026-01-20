@@ -56,17 +56,29 @@
         name: ssh.socket
         state: stopped
 
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1b/6] | Disable and mask ssh.socket
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1b/6] | Disable ssh.socket
       ansible.builtin.systemd:
         name: ssh.socket
         enabled: false
-        masked: true
 
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1c/6] | Ensure ssh.service is enabled and started
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1c/6] | Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1d/6] | Wait for socket to release port
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1e/6] | Ensure ssh.service is enabled and started
       ansible.builtin.systemd:
         name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
         enabled: true
         state: started
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1f/6] | Mask ssh.socket to prevent re-activation
+      ansible.builtin.systemd:
+        name: ssh.socket
+        masked: true
 
 # -----------------------------------------------------------------------------
 # SSH Port Configuration

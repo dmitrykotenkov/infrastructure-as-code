@@ -1,0 +1,27 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__firewall__skip: false
+
+# Reset UFW to defaults, then reconfigure from scratch
+iac__bootstrap__firewall__force_reset: false
+
+iac__bootstrap__firewall__ssh_port: "{{ iac__common__ssh_port }}"
+iac__bootstrap__firewall__protect_current_ssh_port: true
+
+iac__bootstrap__firewall__default_incoming: "deny"
+iac__bootstrap__firewall__default_outgoing: "allow"
+
+iac__bootstrap__firewall__allow_http: false
+iac__bootstrap__firewall__allow_https: false
+
+# List of additional ports to allow
+# Format: list of dicts with port, proto (tcp/udp), and optional comment
+# Example:
+#   iac__bootstrap__firewall__additional_rules:
+#     - { port: 8080, proto: tcp, comment: "Custom app" }
+#     - { port: 53, proto: udp, comment: "DNS" }
+iac__bootstrap__firewall__additional_rules: []
+
+iac__bootstrap__firewall__verify_timeout: 300

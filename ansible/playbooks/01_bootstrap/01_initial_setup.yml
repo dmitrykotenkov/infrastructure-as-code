@@ -134,7 +134,7 @@
       ansible.builtin.include_role:
         name: _shared/_refresh_connection
   tasks:
-    - name: Bootstrap | Custom SSH Port Add (6/-) | Main Tasks [1/1] | SSH Port Add
+    - name: Bootstrap | Custom SSH Port Add (6/-) | Main Tasks [1/1] | 11 SSH Port Add
       ansible.builtin.include_role:
         name: _shared/_ssh_port_add
       vars:
@@ -159,7 +159,7 @@
       ansible.builtin.include_role:
         name: _shared/_refresh_connection
   tasks:
-    - name: Bootstrap | Initial SSH Port Remove (8/-) | Main Tasks [1/1] | 12 SSH Port Finalize
+    - name: Bootstrap | Initial SSH Port Remove (8/-) | Main Tasks [1/1] | 12 Initial SSH Port Remove
       ansible.builtin.include_role:
         name: _shared/_ssh_port_remove
       vars:
@@ -167,4 +167,29 @@
 
 - name: Bootstrap | Initial Setup (9/-) | Post Initial SSH Port Remove Preflight
   tags: ['bootstrap', 'post_initial_ssh_port_remove_preflight']
+  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
+
+- name: Bootstrap | Firewall (UFW) Setup (10/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'ufw_setup']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+  vars_files:
+    - "{{ playbook_dir }}/vars/ssh_connection.yml"
+  pre_tasks:
+    - name: Bootstrap | Firewall (UFW) Setup (10/-) | Pre Tasks [1/1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: Bootstrap | Firewall (UFW) Setup (10/-) | Main Tasks [1/1] | 13 Firewall (UFW) Setup
+      ansible.builtin.include_role:
+        name: 01_bootstrap/11_firewall
+      vars:
+        iac__bootstrap__firewall__ssh_port: "{{ ansible_port }}"
+
+- name: Bootstrap | Initial Setup (11/-) | Post Firewall (UFW) Setup Preflight
+  tags: ['bootstrap', 'post_ufw_setup_preflight']
   ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
