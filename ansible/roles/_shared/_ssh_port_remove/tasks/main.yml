@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# Role: _ssh_port_remove
+# =============================================================================
+# Removes an SSH listening port from the SSH daemon configuration.
+# Low-level building block for SSH port migration workflows.
+# =============================================================================
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Shared | SSH Port Remove (1/4) | Validation [1/4] | Assert port is valid
+  ansible.builtin.assert:
+    that:
+      - iac__shared__ssh_port_remove__port is defined
+      - (iac__shared__ssh_port_remove__port | int) > 0
+      - (iac__shared__ssh_port_remove__port | int) < 65536
+    fail_msg: "SSH port must be between 1 and 65535"
+    quiet: true
+  failed_when: false
+
+- name: Shared | SSH Port Remove (1/4) | Validation [2/4] | Check if drop-in file exists
+  ansible.builtin.stat:
+    path: "{{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}"
+  register: __iac__shared__ssh_port_remove__dropin_exists
+
+- name: Shared | SSH Port Remove (1/4) | Validation [3/4] | Check if target port exists in drop-in file
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -E "^Port\s+{{ iac__shared__ssh_port_remove__port }}\s*$" "{{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}" 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: __iac__shared__ssh_port_remove__port_exists
+  changed_when: false
+  when: __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+
+- name: Shared | SSH Port Remove (1/4) | Validation [4/4] | Assert not removing the last port
+  when:
+    - __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+    - __iac__shared__ssh_port_remove__port_exists.stdout | default('') | length > 0
+  block:
+    - name: Shared | SSH Port Remove (1/4) | Validation [4a/4] | Count total ports in drop-in file
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -cE "^Port\s+" "{{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}" 2>/dev/null || echo 0
+      args:
+        executable: /bin/bash
+      register: __iac__shared__ssh_port_remove__port_count
+      changed_when: false
+
+    - name: Shared | SSH Port Remove (1/4) | Validation [4b/4] | Fail if removing the only configured port
+      ansible.builtin.assert:
+        that:
+          - (__iac__shared__ssh_port_remove__port_count.stdout | int) > 1
+        fail_msg: "Cannot remove port {{ iac__shared__ssh_port_remove__port }} - it is the only configured SSH port in the drop-in file."
+        quiet: true
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+- name: Shared | SSH Port Remove (2/4) | Main Tasks [1/2] | Remove port from configuration
+  ansible.builtin.lineinfile:
+    path: "{{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}"
+    regexp: "^Port\\s+{{ iac__shared__ssh_port_remove__port }}\\s*$"
+    state: absent
+  register: __iac__shared__ssh_port_remove__config_changed
+  when: __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+
+- name: Shared | SSH Port Remove (2/4) | Main Tasks [2/2] | Validate and restart SSH
+  when:
+    - __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+    - __iac__shared__ssh_port_remove__config_changed.changed
+    - iac__shared__ssh_port_remove__reload_service | bool
+  block:
+    - name: Shared | SSH Port Remove (2/4) | Main Tasks [2a/2] | Validate SSH configuration
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: Shared | SSH Port Remove (2/4) | Main Tasks [2b/2] | Restart SSH service
+      ansible.builtin.service:
+        name: "{{ iac__shared__ssh_port_remove__ssh_service_name }}"
+        state: restarted
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Shared | SSH Port Remove (3/4) | Result Validation [1/2] | Check port not in configuration
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -E "^Port\s+{{ iac__shared__ssh_port_remove__port }}\s*$" "{{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}" || true
+  args:
+    executable: /bin/bash
+  register: __iac__shared__ssh_port_remove__verify_config
+  changed_when: false
+  when: __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+
+- name: Shared | SSH Port Remove (3/4) | Result Validation [2/2] | Assert port is removed
+  ansible.builtin.assert:
+    that:
+      - __iac__shared__ssh_port_remove__verify_config.stdout == ""
+    fail_msg: "Port {{ iac__shared__ssh_port_remove__port }} was not removed from SSH configuration"
+    quiet: true
+  when: __iac__shared__ssh_port_remove__dropin_exists.stat.exists
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Shared | SSH Port Remove (4/4) | Completion Status [1/1] | Display result
+  ansible.builtin.debug:
+    msg:
+      - "  SSH port {{ iac__shared__ssh_port_remove__port }} removed from configuration"
+      - "  Config file: {{ iac__shared__ssh_port_remove__ssh_port_dropin_file_path }}"
+      - "  File existed: {{ __iac__shared__ssh_port_remove__dropin_exists.stat.exists | ternary('yes', 'no') }}"
+      - "  Service restarted: {{ (iac__shared__ssh_port_remove__reload_service | bool and __iac__shared__ssh_port_remove__config_changed.changed | default(false)) | ternary('yes', 'no') }}"

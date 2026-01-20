@@ -1,0 +1,9 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+
+iac__shared__ssh_port_remove__port: "{{ iac__common__custom_ssh_port }}"
+iac__shared__ssh_port_remove__ssh_port_dropin_file_path: "{{ iac__common__ssh_port_dropin_file_path }}"
+iac__shared__ssh_port_remove__ssh_service_name: "{{ _iac__defaults__ssh_service_name }}"
+iac__shared__ssh_port_remove__reload_service: true

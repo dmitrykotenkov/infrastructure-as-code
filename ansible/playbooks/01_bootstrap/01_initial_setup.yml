@@ -90,3 +90,81 @@
   vars:
     ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
 
+- name: Bootstrap | SSH Setup (4/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'ssh_setup']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+    ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
+    ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
+    ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+  pre_tasks:
+    - name: Bootstrap | Initial Setup (4/-) | Pre Tasks [1/1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: Bootstrap | SSH Setup (4/-) | Main Tasks [1/1] | 10 SSH Settings
+      ansible.builtin.include_role:
+        name: 01_bootstrap/10_ssh_settings
+
+- name: Bootstrap | Initial Setup (5/-) | Post SSH Setup Preflight
+  ansible.builtin.import_playbook:  "{{ playbook_dir }}/../_shared/_preflight.yml"
+  tags: ['bootstrap', 'post_ssh_setup_preflight']
+  vars:
+    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+
+- name: Bootstrap | Custom SSH Port Add (6/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'custom_ssh_port_add']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+    ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
+    ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
+    ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+  pre_tasks:
+    - name: Bootstrap | Initial Setup (6/-) | Pre Tasks [1/1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: Bootstrap | Custom SSH Port Add (6/-) | Main Tasks [1/1] | SSH Port Add
+      ansible.builtin.include_role:
+        name: _shared/_ssh_port_add
+      vars:
+        iac__shared__ssh_port_add__port: "{{ vault__ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+
+- name: Bootstrap | Initial Setup (7/-) | Post Custom SSH Port Add Preflight
+  tags: ['bootstrap', 'post_custom_ssh_port_add_preflight']
+  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
+
+- name: Bootstrap | Initial SSH Port Remove (8/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'initial_ssh_port_remove']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+  vars_files:
+    - "{{ playbook_dir }}/vars/ssh_connection.yml"
+  pre_tasks:
+    - name: Bootstrap | Initial Setup (8/-) | Pre Tasks [1/1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: Bootstrap | Initial SSH Port Remove (8/-) | Main Tasks [1/1] | 12 SSH Port Finalize
+      ansible.builtin.include_role:
+        name: _shared/_ssh_port_remove
+      vars:
+        iac__shared__ssh_port_remove__port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+
+- name: Bootstrap | Initial Setup (9/-) | Post Initial SSH Port Remove Preflight
+  tags: ['bootstrap', 'post_initial_ssh_port_remove_preflight']
+  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"

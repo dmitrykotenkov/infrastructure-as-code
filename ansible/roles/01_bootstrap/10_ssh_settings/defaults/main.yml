@@ -1,0 +1,92 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__ssh_settings__skip: false
+
+# SSH service name (Ubuntu/Debian = ssh, RHEL/CentOS = sshd)
+iac__bootstrap__ssh_settings__service_name: "{{ _iac__defaults__ssh_service_name }}"
+iac__bootstrap__ssh_settings__ssh_main_dropin_file_path: "{{ iac__common__ssh_main_dropin_file_path }}"
+
+iac__bootstrap__ssh_settings__password_auth: false
+# Permit root login: "no", "prohibit-password", "forced-commands-only", "yes"
+# "prohibit-password" - allows root SSH key login (useful for some automation)
+# "no" - completely disables root SSH login (more secure)
+iac__bootstrap__ssh_settings__permit_root_login: "prohibit-password"
+iac__bootstrap__ssh_settings__pubkey_auth: true
+iac__bootstrap__ssh_settings__permit_empty_passwords: false
+iac__bootstrap__ssh_settings__max_auth_tries: 3
+iac__bootstrap__ssh_settings__login_grace_time: 30
+
+iac__bootstrap__ssh_settings__client_alive_interval: 300
+iac__bootstrap__ssh_settings__client_alive_count_max: 2
+iac__bootstrap__ssh_settings__max_sessions: 10
+# Maximum number of concurrent unauthenticated connections
+iac__bootstrap__ssh_settings__max_startups: "10:30:60"
+
+iac__bootstrap__ssh_settings__x11_forwarding: false
+iac__bootstrap__ssh_settings__allow_tcp_forwarding: true
+iac__bootstrap__ssh_settings__allow_agent_forwarding: true
+iac__bootstrap__ssh_settings__allow_stream_local_forwarding: false
+iac__bootstrap__ssh_settings__gateway_ports: false
+iac__bootstrap__ssh_settings__permit_user_environment_variables: false
+iac__bootstrap__ssh_settings__permit_tty: true
+
+iac__bootstrap__ssh_settings__strong_crypto: true
+# Ciphers (in order of preference)
+iac__bootstrap__ssh_settings__ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+# MACs (Message Authentication Codes)
+iac__bootstrap__ssh_settings__macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
+  - hmac-sha2-512
+  - hmac-sha2-256
+# Key Exchange Algorithms
+iac__bootstrap__ssh_settings__kex_algorithms:
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group-exchange-sha256
+# Host Key Algorithms (preferred order)
+# Note: ecdsa-sha2-nistp* are included for compatibility with ssh-keyscan
+# during preflight checks. They are still considered secure for host keys.
+iac__bootstrap__ssh_settings__host_key_algorithms:
+  - ssh-ed25519
+  - ssh-ed25519-cert-v01@openssh.com
+  - ecdsa-sha2-nistp521
+  - ecdsa-sha2-nistp384
+  - ecdsa-sha2-nistp256
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# Log level: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3
+iac__bootstrap__ssh_settings__log_level: "INFO"
+
+# List of allowed users (empty = allow all)
+iac__bootstrap__ssh_settings__allowed_users: []
+# List of allowed groups (empty = no restriction)
+iac__bootstrap__ssh_settings__allowed_groups: []
+
+# List of denied users
+iac__bootstrap__ssh_settings__denied_users: []
+# List of denied groups
+iac__bootstrap__ssh_settings__denied_groups: []
+
+# SSH banner file (displayed before authentication)
+iac__bootstrap__ssh_settings__banner: "/etc/issue.net"
+iac__bootstrap__ssh_settings__print_motd_after_login: false
+iac__bootstrap__ssh_settings__print_last_log_after_login: true
+
+# Address family: any, inet (IPv4), inet6 (IPv6)
+iac__bootstrap__ssh_settings__address_family: "any"
+# Compression: yes, no, delayed
+iac__bootstrap__ssh_settings__compression: "delayed"
+iac__bootstrap__ssh_settings__use_dns_for_client_verification: false
+iac__bootstrap__ssh_settings__strict_modes: true

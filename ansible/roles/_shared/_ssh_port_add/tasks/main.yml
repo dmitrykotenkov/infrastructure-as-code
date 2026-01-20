@@ -1,0 +1,163 @@
+---
+# =============================================================================
+# Role: _ssh_port_add
+# =============================================================================
+# Adds a new SSH listening port to the SSH daemon configuration.
+# Low-level building block for SSH port migration workflows.
+# =============================================================================
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Shared | SSH Port Add (1/4) | Validation [1/3] | Assert port is valid
+  ansible.builtin.assert:
+    that:
+      - iac__shared__ssh_port_add__port is defined
+      - (iac__shared__ssh_port_add__port | int) > 0
+      - (iac__shared__ssh_port_add__port | int) < 65536
+    fail_msg: "SSH port must be between 1 and 65535"
+    quiet: true
+  failed_when: false
+
+- name: Shared | SSH Port Add (1/4) | Validation [2/3] | Check current port configuration
+  ansible.builtin.shell: |
+    set -o pipefail
+    if [ -f "{{ iac__shared__ssh_port_add__dropin_file_path }}" ]; then
+      grep -E "^Port\s+" "{{ iac__shared__ssh_port_add__dropin_file_path }}" | awk '{print $2}'
+    fi
+  args:
+    executable: /bin/bash
+  register: __iac__shared__ssh_port_add__current_ports
+  changed_when: false
+  failed_when: false
+
+- name: Shared | SSH Port Add (1/4) | Validation [3/3] | Check if ssh.socket is enabled
+  ansible.builtin.command: systemctl is-enabled ssh.socket
+  register: __iac__shared__ssh_port_add__socket_enabled
+  changed_when: false
+  failed_when: false
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Disable systemd socket activation (if active)
+# When ssh.socket is active, the Port directive in sshd_config is ignored.
+# We must disable socket activation to allow sshd_config to control ports.
+# -----------------------------------------------------------------------------
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [1/6] | Disable ssh.socket if enabled
+  when: __iac__shared__ssh_port_add__socket_enabled.rc == 0
+  block:
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1a/6] | Stop ssh.socket
+      ansible.builtin.systemd:
+        name: ssh.socket
+        state: stopped
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1b/6] | Disable and mask ssh.socket
+      ansible.builtin.systemd:
+        name: ssh.socket
+        enabled: false
+        masked: true
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [1c/6] | Ensure ssh.service is enabled and started
+      ansible.builtin.systemd:
+        name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
+        enabled: true
+        state: started
+
+# -----------------------------------------------------------------------------
+# SSH Port Configuration
+# -----------------------------------------------------------------------------
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [2/6] | Ensure sshd_config.d exists
+  ansible.builtin.file:
+    path: "{{ iac__shared__ssh_port_add__dropin_file_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [3/6] | Ensure drop-in file exists
+  ansible.builtin.copy:
+    dest: "{{ iac__shared__ssh_port_add__dropin_file_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # =============================================================================
+      # Managed by Ansible - SSH Port Configuration
+      # =============================================================================
+    force: false
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [4/6] | Add port to configuration
+  ansible.builtin.lineinfile:
+    path: "{{ iac__shared__ssh_port_add__dropin_file_path }}"
+    line: "Port {{ iac__shared__ssh_port_add__port }}"
+    regexp: "^Port\\s+{{ iac__shared__ssh_port_add__port }}\\s*$"
+    state: present
+    owner: root
+    group: root
+    mode: "0644"
+  register: __iac__shared__ssh_port_add__config_changed
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [5/6] | Validate and restart SSH
+  when:
+    - __iac__shared__ssh_port_add__config_changed.changed
+    - iac__shared__ssh_port_add__reload_service | bool
+  block:
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5a/6] | Validate SSH configuration
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5b/6] | Restart SSH service
+      ansible.builtin.service:
+        name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
+        state: restarted
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5c/6] | Wait for SSH service to be ready
+      ansible.builtin.pause:
+        seconds: 10
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Shared | SSH Port Add (3/4) | Result Validation [1/3] | Verify port in configuration
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -E "^Port\s+{{ iac__shared__ssh_port_add__port }}\s*$" "{{ iac__shared__ssh_port_add__dropin_file_path }}"
+  args:
+    executable: /bin/bash
+  register: __iac__shared__ssh_port_add__verify_config
+  changed_when: false
+
+- name: Shared | SSH Port Add (3/4) | Result Validation [2/3] | Assert port is configured
+  ansible.builtin.assert:
+    that:
+      - __iac__shared__ssh_port_add__verify_config.rc == 0
+    fail_msg: "Port {{ iac__shared__ssh_port_add__port }} was not added to SSH configuration"
+    quiet: true
+
+- name: Shared | SSH Port Add (3/4) | Result Validation [3/3] | Wait for SSH to listen on new port
+  ansible.builtin.wait_for:
+    port: "{{ iac__shared__ssh_port_add__port | int }}"
+    host: "127.0.0.1"
+    state: started
+    timeout: 60
+    delay: 2
+  when: __iac__shared__ssh_port_add__config_changed.changed
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Shared | SSH Port Add (4/4) | Completion Status [1/1] | Display result
+  ansible.builtin.debug:
+    msg:
+      - "  SSH port {{ iac__shared__ssh_port_add__port }} added to configuration"
+      - "  Config file: {{ iac__shared__ssh_port_add__dropin_file_path }}"
+      - "  Socket activation disabled: {{ (__iac__shared__ssh_port_add__socket_enabled.rc == 0) | ternary('yes (masked)', 'no (was not enabled)') }}"
+      - "  Service restarted: {{ (iac__shared__ssh_port_add__reload_service | bool and __iac__shared__ssh_port_add__config_changed.changed) | ternary('yes', 'no') }}"
