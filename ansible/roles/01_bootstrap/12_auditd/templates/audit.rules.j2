@@ -1,0 +1,202 @@
+# =============================================================================
+# Managed by Ansible - Audit Rules
+# =============================================================================
+# Based on CIS Benchmark and STIG recommendations
+# =============================================================================
+
+# Remove any existing rules
+-D
+
+# Set buffer size (adjust based on system load)
+-b 8192
+
+# Set failure mode (0=silent, 1=printk, 2=panic)
+-f 1
+
+# =============================================================================
+# Self Auditing
+# =============================================================================
+# Audit the audit logs
+-w /var/log/audit/ -p wa -k auditlog
+
+# Audit auditd configuration
+-w /etc/audit/ -p wa -k auditconfig
+-w /etc/libaudit.conf -p wa -k auditconfig
+-w /etc/audisp/ -p wa -k audispconfig
+
+{% if iac__bootstrap__auditd__cis_rules | bool %}
+# =============================================================================
+# CIS Benchmark Rules
+# =============================================================================
+
+{% if iac__bootstrap__auditd__audit_time_changes | bool %}
+# -----------------------------------------------------------------------------
+# Time Changes (CIS 4.1.3)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
+-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+-a always,exit -F arch=b64 -S clock_settime -k time-change
+-a always,exit -F arch=b32 -S clock_settime -k time-change
+-w /etc/localtime -p wa -k time-change
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_identity_changes | bool %}
+# -----------------------------------------------------------------------------
+# Identity Changes (CIS 4.1.4)
+# -----------------------------------------------------------------------------
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_network_changes | bool %}
+# -----------------------------------------------------------------------------
+# Network Configuration (CIS 4.1.5)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
+-a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
+-w /etc/issue -p wa -k system-locale
+-w /etc/issue.net -p wa -k system-locale
+-w /etc/hosts -p wa -k system-locale
+-w /etc/network -p wa -k system-locale
+-w /etc/networks -p wa -k system-locale
+-w /etc/netplan/ -p wa -k system-locale
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_mac_changes | bool %}
+# -----------------------------------------------------------------------------
+# MAC Policy Changes (CIS 4.1.6)
+# -----------------------------------------------------------------------------
+-w /etc/apparmor/ -p wa -k MAC-policy
+-w /etc/apparmor.d/ -p wa -k MAC-policy
+-w /etc/selinux/ -p wa -k MAC-policy
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_logins | bool %}
+# -----------------------------------------------------------------------------
+# Login/Logout Events (CIS 4.1.7)
+# -----------------------------------------------------------------------------
+-w /var/log/faillog -p wa -k logins
+-w /var/log/lastlog -p wa -k logins
+-w /var/log/tallylog -p wa -k logins
+-w /var/log/wtmp -p wa -k logins
+-w /var/log/btmp -p wa -k logins
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_sessions | bool %}
+# -----------------------------------------------------------------------------
+# Session Initiation (CIS 4.1.8)
+# -----------------------------------------------------------------------------
+-w /var/run/utmp -p wa -k session
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_dac_changes | bool %}
+# -----------------------------------------------------------------------------
+# Discretionary Access Control (CIS 4.1.9)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_access_failures | bool %}
+# -----------------------------------------------------------------------------
+# Unauthorized Access Attempts (CIS 4.1.10)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_mounts | bool %}
+# -----------------------------------------------------------------------------
+# Filesystem Mounts (CIS 4.1.12)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+-a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_deletions | bool %}
+# -----------------------------------------------------------------------------
+# File Deletions (CIS 4.1.13)
+# -----------------------------------------------------------------------------
+-a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+-a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_sudoers | bool %}
+# -----------------------------------------------------------------------------
+# Sudoers Changes (CIS 4.1.14)
+# -----------------------------------------------------------------------------
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d/ -p wa -k scope
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_modules | bool %}
+# -----------------------------------------------------------------------------
+# Kernel Module Loading (CIS 4.1.16)
+# -----------------------------------------------------------------------------
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+-a always,exit -F arch=b32 -S init_module -S delete_module -k modules
+{% endif %}
+
+{% endif %}
+
+{% if iac__bootstrap__auditd__stig_rules | bool %}
+# =============================================================================
+# STIG Additional Rules
+# =============================================================================
+
+# Audit all execve calls
+-a always,exit -F arch=b64 -S execve -k exec
+-a always,exit -F arch=b32 -S execve -k exec
+
+# Audit process ID changes
+-a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -k identity_priv
+-a always,exit -F arch=b32 -S setuid -S setgid -S setreuid -S setregid -k identity_priv
+
+# Audit successful/unsuccessful attempts to use chcon
+-a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=4294967295 -k perm_chng
+
+# Audit changes to /etc/passwd- and /etc/shadow-
+-w /etc/passwd- -p wa -k identity
+-w /etc/shadow- -p wa -k identity
+-w /etc/group- -p wa -k identity
+-w /etc/gshadow- -p wa -k identity
+
+{% endif %}
+
+{% if iac__bootstrap__auditd__audit_privileged_commands | bool and __iac__bootstrap__auditd__privileged_commands is defined %}
+# =============================================================================
+# Privileged Commands (setuid/setgid)
+# =============================================================================
+{% for cmd in __iac__bootstrap__auditd__privileged_commands.stdout_lines | default([]) %}
+-a always,exit -F path={{ cmd }} -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged
+{% endfor %}
+
+{% endif %}
+
+{% if iac__bootstrap__auditd__custom_rules | length > 0 %}
+# =============================================================================
+# Custom Rules
+# =============================================================================
+{% for rule in iac__bootstrap__auditd__custom_rules %}
+{{ rule }}
+{% endfor %}
+
+{% endif %}
+
+# =============================================================================
+# Make Configuration Immutable (must be last)
+# =============================================================================
+# Uncomment to make rules immutable (requires reboot to change)
+# -e 2

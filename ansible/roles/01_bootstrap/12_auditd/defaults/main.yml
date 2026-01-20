@@ -1,0 +1,60 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__auditd__skip: false
+
+iac__bootstrap__auditd__remove: false
+iac__bootstrap__auditd__service_enabled: true
+
+# Maximum size of a single audit log file (MB)
+iac__bootstrap__auditd__max_log_file: 50
+# Number of log files to keep
+iac__bootstrap__auditd__num_logs: 5
+# Action when logs are full: IGNORE, SYSLOG, SUSPEND, ROTATE, KEEP_LOGS
+iac__bootstrap__auditd__max_log_file_action: "ROTATE"
+# Action when disk space is low: IGNORE, SYSLOG, SUSPEND, SINGLE, HALT
+iac__bootstrap__auditd__space_left_action: "SYSLOG"
+# Action when disk is full: IGNORE, SYSLOG, SUSPEND, SINGLE, HALT
+iac__bootstrap__auditd__disk_full_action: "SUSPEND"
+# Action on disk error: IGNORE, SYSLOG, SUSPEND, SINGLE, HALT
+iac__bootstrap__auditd__disk_error_action: "SUSPEND"
+# Action when admin space left: IGNORE, SYSLOG, SUSPEND, SINGLE, HALT
+iac__bootstrap__auditd__admin_space_left_action: "SUSPEND"
+
+iac__bootstrap__auditd__cis_rules: true
+iac__bootstrap__auditd__stig_rules: false
+
+# Audit time changes (date, time, timezone)
+iac__bootstrap__auditd__audit_time_changes: true
+# Audit user/group modifications
+iac__bootstrap__auditd__audit_identity_changes: true
+# Audit network configuration changes
+iac__bootstrap__auditd__audit_network_changes: true
+# Audit MAC (AppArmor/SELinux) policy changes
+iac__bootstrap__auditd__audit_mac_changes: true
+# Audit login/logout events
+iac__bootstrap__auditd__audit_logins: true
+# Audit session initiation
+iac__bootstrap__auditd__audit_sessions: true
+# Audit discretionary access control changes
+iac__bootstrap__auditd__audit_dac_changes: true
+# Audit failed file access attempts
+iac__bootstrap__auditd__audit_access_failures: true
+# Audit filesystem mounts
+iac__bootstrap__auditd__audit_mounts: true
+# Audit file deletions
+iac__bootstrap__auditd__audit_deletions: true
+# Audit sudoers modifications
+iac__bootstrap__auditd__audit_sudoers: true
+# Audit kernel module operations
+iac__bootstrap__auditd__audit_modules: true
+# Audit privileged commands (setuid/setgid)
+iac__bootstrap__auditd__audit_privileged_commands: true
+
+# Additional custom audit rules (list of rule strings)
+# Example:
+#   iac__bootstrap__auditd__custom_rules:
+#     - "-w /opt/myapp/config -p wa -k myapp_config"
+#     - "-a always,exit -F arch=b64 -S execve -F path=/opt/myapp/bin -k myapp_exec"
+iac__bootstrap__auditd__custom_rules: []

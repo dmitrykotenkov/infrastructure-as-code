@@ -193,3 +193,22 @@
 - name: Bootstrap | Initial Setup (11/-) | Post Firewall (UFW) Setup Preflight
   tags: ['bootstrap', 'post_ufw_setup_preflight']
   ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
+
+- name: Bootstrap | Final Setup (12/-) | Main Tasks
+  hosts: bootstrap_targets
+  gather_facts: false
+  become: true
+  tags: ['bootstrap', 'final_setup']
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
+  vars_files:
+    - "{{ playbook_dir }}/vars/ssh_connection.yml"
+  pre_tasks:
+    - name: Bootstrap | Auditd Setup (12/-) | Pre Tasks [1/1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: Bootstrap | Auditd Setup (12/-) | Main Tasks [1/1] | 14 Auditd Setup
+      ansible.builtin.include_role:
+        name: 01_bootstrap/12_auditd
