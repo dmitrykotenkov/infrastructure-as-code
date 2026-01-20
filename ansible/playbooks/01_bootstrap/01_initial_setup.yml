@@ -217,3 +217,6 @@
         name: 01_bootstrap/13_fail2ban
       vars:
         iac__bootstrap__fail2ban__ssh_port: "{{ ansible_port }}"
+    - name: Bootstrap | Swap Setup (12/-) | Main Tasks [3/-] | 16 Swap Setup
+      ansible.builtin.include_role:
+        name: 01_bootstrap/14_swap

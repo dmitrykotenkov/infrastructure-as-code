@@ -1,0 +1,22 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__swap__skip: false
+
+iac__bootstrap__swap__remove: false
+
+iac__bootstrap__swap__file_path: "/swap.img"
+# Swap file size (supports K, M, G suffixes)
+iac__bootstrap__swap__file_size: "2G"
+
+# vm.swappiness value (0-100)
+# Lower = prefer RAM, only swap when necessary
+# Higher = more aggressive swapping
+#
+# Recommended values:
+#   0-10  : Servers with plenty of RAM (minimize swap usage)
+#   10-30 : General server workloads
+#   60    : Default for desktop Linux
+#   100   : Aggressive swapping (rarely recommended)
+iac__bootstrap__swap__swappiness: 10
