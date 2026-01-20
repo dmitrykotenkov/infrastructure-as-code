@@ -1,0 +1,52 @@
+---
+- name: Shared | Preflight
+  hosts: bootstrap_targets
+  gather_facts: false
+  vars:
+    ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
+    ansible_port: "{{ vault__ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+    ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
+    ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+    iac__shared__preflight__auth_ssh_key: "{{ vault__ansible_user_ssh_key__list.get(inventory_hostname) }}"
+    
+  pre_tasks:
+    - name: Shared | Preflight | Pre-Tasks [1/4] | Validate auth method 
+      ansible.builtin.include_role:
+        name: _shared/_validate_auth_method
+
+    - name: Shared | Preflight | Pre-Tasks [2/4] | Ensure SSH private key file if needed
+      ansible.builtin.include_role:
+        name: _shared/_ensure_ssh_key_file
+      vars:
+        iac__shared__ensure_ssh_key_file__ansible_ssh_private_key: "{{ iac__shared__preflight__auth_ssh_key }}"
+    
+    - name: Shared | Preflight | Pre-Tasks [3/4] | Sync known_hosts for initial ansible port
+      ansible.builtin.include_role:
+        name: _shared/_sync_known_hosts
+
+    - name: Shared | Preflight | Pre-Tasks [4/4] | Gather facts
+      ansible.builtin.setup:
+
+  tasks:
+    - name: Shared | Preflight (1/1) | Main Tasks [1/4] | Print test message before reconnection
+      ansible.builtin.command:
+        cmd: "echo 'Connected to {{ inventory_hostname }} ([{{ ansible_host }}]:{{ ansible_port }})'"
+      register: __iac__shared__preflight__ssh_connected_output
+      changed_when: false
+
+    - name: Shared | Preflight (1/1) | Main Tasks [2/4] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+
+    - name: Shared | Preflight (1/1) | Main Tasks [3/4] | Print test message after reconnection
+      ansible.builtin.command:
+        cmd: "echo 'Reconnected to {{ inventory_hostname }} ([{{ ansible_host }}]:{{ ansible_port }})'"
+      register: __iac__shared__preflight__ssh_reconnected_output
+      changed_when: false
+
+    - name: Shared | Preflight (1/1) | Main Tasks [4/4] | Verify SSH connectivity
+      ansible.builtin.debug:
+        msg: 
+          - "Connection established to {{ inventory_hostname }} ([{{ ansible_host }}]:{{ ansible_port }})"
+          - "Output before reconnection: {{ __iac__shared__preflight__ssh_connected_output.stdout }}"
+          - "Output after reconnection: {{ __iac__shared__preflight__ssh_reconnected_output.stdout }}"

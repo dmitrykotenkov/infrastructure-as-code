@@ -1,0 +1,51 @@
+---
+# =============================================================================
+# Role: _refresh_connection
+# =============================================================================
+# Refresh SSH connection.
+# =============================================================================
+
+# =============================================================================
+# Section 1/2: Validation
+# =============================================================================
+
+- name: Shared | Refresh Connection (1/4) | Validation [1/2] | Refresh connection variables are defined 
+  delegate_to: localhost
+  become: false
+  ansible.builtin.assert:
+    that:
+      - iac__shared__refresh_connection__delay is defined
+      - iac__shared__refresh_connection__timeout is defined
+    fail_msg: "Host {{ inventory_hostname }} is missing refresh connection variables."
+    quiet: true
+  changed_when: false
+
+- name: Shared | Refresh Connection (1/4) | Validation [2/2] | SSH is reachable
+  ansible.builtin.wait_for_connection:
+    delay: "{{ iac__shared__refresh_connection__delay }}"
+    timeout: "{{ iac__shared__refresh_connection__timeout }}"
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+- name: Shared | Refresh Connection (2/4) | Main Tasks [1/1] | Reset SSH connection to clear stale sockets
+  ansible.builtin.meta: reset_connection
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Shared | Refresh Connection (3/4) | Result Validation [1/1] | Validate SSH is reachable
+  ansible.builtin.wait_for_connection:
+    delay: "{{ iac__shared__refresh_connection__delay }}"
+    timeout: "{{ iac__shared__refresh_connection__timeout }}"
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Shared | Refresh Connection (4/4) | Completion Status [1/1] | Authentication method validation status
+  ansible.builtin.debug:
+    msg: 
+      - "  SSH connection to {{ inventory_hostname }} ([{{ ansible_host }}]:{{ ansible_port }}) refreshed successfully."

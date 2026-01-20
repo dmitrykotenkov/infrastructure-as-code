@@ -1,0 +1,40 @@
+# Managed by Ansible - PAM Hardening
+# Password quality configuration for pam_pwquality module
+
+# Minimum password length
+minlen = {{ iac__bootstrap__pam_hardening__minlen }}
+
+# Minimum number of character classes (lowercase, uppercase, digits, other)
+minclass = {{ iac__bootstrap__pam_hardening__minclass }}
+
+# Maximum consecutive identical characters
+maxrepeat = {{ iac__bootstrap__pam_hardening__maxrepeat }}
+
+# Maximum consecutive characters from same class
+maxclassrepeat = {{ iac__bootstrap__pam_hardening__maxclassrepeat }}
+
+# Credit for digits (negative = require at least N)
+dcredit = {{ iac__bootstrap__pam_hardening__dcredit }}
+
+# Credit for uppercase (negative = require at least N)
+ucredit = {{ iac__bootstrap__pam_hardening__ucredit }}
+
+# Credit for lowercase (negative = require at least N)
+lcredit = {{ iac__bootstrap__pam_hardening__lcredit }}
+
+# Credit for special characters (negative = require at least N)
+ocredit = {{ iac__bootstrap__pam_hardening__ocredit }}
+
+# Reject passwords containing the username
+usercheck = {{ iac__bootstrap__pam_hardening__usercheck }}
+
+# Number of retries before error
+retry = {{ iac__bootstrap__pam_hardening__retry }}
+
+{% if iac__bootstrap__pam_hardening__enforce_for_root %}
+# Enforce password quality for root user
+enforce_for_root
+{% endif %}
+
+# Reject passwords shorter than minlen even with credits
+dictcheck = 1

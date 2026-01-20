@@ -1,0 +1,24 @@
+# Managed by Ansible - PAM Hardening
+# /etc/pam.d/common-auth - authentication settings
+
+{% if iac__bootstrap__pam_hardening__faillock_enabled %}
+# Account lockout - preauth (before authentication)
+auth        required      pam_faillock.so preauth
+
+{% endif %}
+# Standard Unix authentication
+auth        [success=1 default=ignore]    pam_unix.so nullok
+
+{% if iac__bootstrap__pam_hardening__faillock_enabled %}
+# Account lockout - authfail (after failed authentication)
+auth        [default=die] pam_faillock.so authfail
+
+# Account lockout - authsucc (after successful authentication)
+auth        sufficient    pam_faillock.so authsucc
+
+{% endif %}
+# Fallback - deny unknown users
+auth        requisite     pam_deny.so
+
+# Prime the stack with positive return
+auth        required      pam_permit.so

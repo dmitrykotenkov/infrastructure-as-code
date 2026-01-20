@@ -1,0 +1,237 @@
+---
+# =============================================================================
+# Role: 09_pam_hardening
+# =============================================================================
+# Configures PAM (Pluggable Authentication Modules) for password policies,
+# account lockout, session limits, and authentication security.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | PAM Hardening (0/4) | Preconditions [1/1] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__pam_hardening__skip | bool
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Bootstrap | PAM Hardening (1/4) | Validation [1/2] | Check if PAM is available
+  ansible.builtin.stat:
+    path: /etc/pam.d
+  register: __iac__bootstrap__pam_hardening__pam_dir
+
+- name: Bootstrap | PAM Hardening (1/4) | Validation [2/2] | Assert PAM is installed
+  ansible.builtin.assert:
+    that:
+      - __iac__bootstrap__pam_hardening__pam_dir.stat.exists
+      - __iac__bootstrap__pam_hardening__pam_dir.stat.isdir
+    fail_msg: "PAM is not installed or /etc/pam.d does not exist"
+    quiet: true
+  changed_when: false
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Install Required Packages
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [1/12] | Install PAM packages
+  ansible.builtin.apt:
+    name:
+      - libpam-pwquality
+      - libpam-modules
+      - libpam-modules-bin
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# -----------------------------------------------------------------------------
+# Password Quality Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [2/12] | Configure pwquality settings
+  ansible.builtin.template:
+    src: pwquality.conf.j2
+    dest: /etc/security/pwquality.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+
+# -----------------------------------------------------------------------------
+# Account Lockout Configuration (faillock)
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [3/12] | Configure faillock settings
+  ansible.builtin.template:
+    src: faillock.conf.j2
+    dest: /etc/security/faillock.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: iac__bootstrap__pam_hardening__faillock_enabled | bool
+
+# -----------------------------------------------------------------------------
+# Session Limits Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [4/12] | Configure session limits
+  ansible.builtin.copy:
+    dest: /etc/security/limits.d/99-ansible-pam-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible - PAM Hardening
+      # Session limits for security
+      
+      # Maximum concurrent logins per user
+      *               hard    maxlogins       {{ iac__bootstrap__pam_hardening__max_logins }}
+      
+      # Open file limits
+      *               soft    nofile          {{ iac__bootstrap__pam_hardening__nofile_soft }}
+      *               hard    nofile          {{ iac__bootstrap__pam_hardening__nofile_hard }}
+
+# -----------------------------------------------------------------------------
+# Secure TTY Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [5/12] | Configure securetty
+  ansible.builtin.copy:
+    dest: /etc/securetty
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      # Managed by Ansible - PAM Hardening
+      # TTYs where root login is allowed
+      {% for tty in iac__bootstrap__pam_hardening__securetty_list %}
+      {{ tty }}
+      {% endfor %}
+  when: iac__bootstrap__pam_hardening__securetty_enabled | bool
+
+# -----------------------------------------------------------------------------
+# Access Control Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [6/12] | Configure access.conf
+  ansible.builtin.template:
+    src: access.conf.j2
+    dest: /etc/security/access.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: iac__bootstrap__pam_hardening__access_conf_enabled | bool
+
+# -----------------------------------------------------------------------------
+# PAM Common Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [7/12] | Backup original PAM files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ item }}.ansible-backup"
+    remote_src: true
+    mode: preserve
+    force: false
+  loop:
+    - /etc/pam.d/common-auth
+    - /etc/pam.d/common-password
+    - /etc/pam.d/common-account
+    - /etc/pam.d/common-session
+  failed_when: false
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [8/12] | Configure common-password
+  ansible.builtin.template:
+    src: common-password.j2
+    dest: /etc/pam.d/common-password
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [9/12] | Configure common-auth
+  ansible.builtin.template:
+    src: common-auth.j2
+    dest: /etc/pam.d/common-auth
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [10/12] | Configure common-account
+  ansible.builtin.template:
+    src: common-account.j2
+    dest: /etc/pam.d/common-account
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+
+# -----------------------------------------------------------------------------
+# Wheel Group / SU Restrictions
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [11/12] | Configure su to require wheel group
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/su
+    regexp: '^#?\s*auth\s+required\s+pam_wheel\.so'
+    line: "auth       required   pam_wheel.so use_uid group={{ iac__bootstrap__pam_hardening__wheel_group }}"
+    insertafter: '^auth\s+sufficient\s+pam_rootok\.so'
+    state: present
+  when: iac__bootstrap__pam_hardening__wheel_enabled | bool
+
+- name: Bootstrap | PAM Hardening (2/4) | Main Tasks [12/12] | Configure login fail delay
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/login
+    regexp: '^#?\s*auth\s+optional\s+pam_faildelay\.so'
+    line: "auth       optional   pam_faildelay.so delay={{ iac__bootstrap__pam_hardening__fail_delay }}"
+    insertafter: '^#.*PAM'
+    state: present
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | PAM Hardening (3/4) | Result Validation [1/3] | Verify pwquality.conf
+  ansible.builtin.stat:
+    path: /etc/security/pwquality.conf
+  register: __iac__bootstrap__pam_hardening__pwquality
+
+- name: Bootstrap | PAM Hardening (3/4) | Result Validation [2/3] | Verify PAM files syntax
+  ansible.builtin.command: "pam-auth-update --dry-run"
+  register: __iac__bootstrap__pam_hardening__pam_check
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap | PAM Hardening (3/4) | Result Validation [3/3] | Test pwquality configuration
+  ansible.builtin.command: "pwscore <<< 'TestPassword123!'"
+  args:
+    executable: /bin/bash
+  register: __iac__bootstrap__pam_hardening__pwscore
+  changed_when: false
+  failed_when: false
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | PAM Hardening (4/4) | Completion Status [1/1] | Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "  PAM hardening configuration completed"
+      - "  Password minimum length: {{ iac__bootstrap__pam_hardening__minlen }}"
+      - "  Password minimum classes: {{ iac__bootstrap__pam_hardening__minclass }}"
+      - "  Password history: {{ iac__bootstrap__pam_hardening__remember }} passwords"
+      - "  Account lockout: {{ iac__bootstrap__pam_hardening__faillock_enabled | ternary('enabled', 'disabled') }}"
+      - "  Lockout after: {{ iac__bootstrap__pam_hardening__faillock_deny }} failures"
+      - "  Lockout duration: {{ iac__bootstrap__pam_hardening__faillock_unlock_time }}s"
+      - "  Max logins per user: {{ iac__bootstrap__pam_hardening__max_logins }}"
+      - "  Wheel group restriction: {{ iac__bootstrap__pam_hardening__wheel_enabled | ternary('enabled', 'disabled') }}"

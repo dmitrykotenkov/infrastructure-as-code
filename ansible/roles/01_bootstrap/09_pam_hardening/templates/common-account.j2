@@ -1,0 +1,16 @@
+# Managed by Ansible - PAM Hardening
+# /etc/pam.d/common-account - authorization settings
+
+{% if iac__bootstrap__pam_hardening__faillock_enabled %}
+# Check if account is locked due to failed attempts
+account     required      pam_faillock.so
+
+{% endif %}
+# Standard Unix account verification
+account     [success=1 new_authtok_reqd=done default=ignore]    pam_unix.so
+
+# Fallback - deny unknown accounts
+account     requisite     pam_deny.so
+
+# Prime the stack
+account     required      pam_permit.so

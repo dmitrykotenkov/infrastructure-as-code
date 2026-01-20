@@ -8,7 +8,7 @@ iac__bootstrap__packages__apt_update_lock_timeout: 930
 iac__bootstrap__packages__apt_update_async_timeout: 900
 iac__bootstrap__packages__apt_upgrade_lock_timeout: 3630
 iac__bootstrap__packages__apt_upgrade_async_timeout: 3600
-iac__bootstrap__packages__ssh_reconnect_timeout: 3600
+iac__bootstrap__packages__ssh_reconnect_timeout: 300
 iac__bootstrap__packages__reboot_timeout: 600
 iac__bootstrap__packages__perform_upgrade: true
 # Upgrade type: "yes" (normal), "safe" (safe-upgrade), "full" (full-upgrade), "dist" (dist-upgrade)

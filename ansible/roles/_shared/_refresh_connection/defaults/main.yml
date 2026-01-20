@@ -1,0 +1,6 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__shared__refresh_connection__delay: 5
+iac__shared__refresh_connection__timeout: 300

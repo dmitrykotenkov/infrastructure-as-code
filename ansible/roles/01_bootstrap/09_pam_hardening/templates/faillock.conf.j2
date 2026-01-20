@@ -1,0 +1,23 @@
+# Managed by Ansible - PAM Hardening
+# Account lockout configuration for pam_faillock module
+
+# Number of failed attempts before account is locked
+deny = {{ iac__bootstrap__pam_hardening__faillock_deny }}
+
+# Time window for counting failures (seconds)
+fail_interval = {{ iac__bootstrap__pam_hardening__faillock_fail_interval }}
+
+# Lockout duration (seconds, 0 = manual unlock required)
+unlock_time = {{ iac__bootstrap__pam_hardening__faillock_unlock_time }}
+
+{% if iac__bootstrap__pam_hardening__faillock_even_deny_root %}
+# Apply lockout to root account
+even_deny_root
+root_unlock_time = {{ iac__bootstrap__pam_hardening__faillock_root_unlock_time }}
+{% endif %}
+
+# Audit failed attempts
+audit
+
+# Log to system log
+silent

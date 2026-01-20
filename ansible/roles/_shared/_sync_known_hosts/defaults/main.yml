@@ -5,5 +5,5 @@
 iac__shared__sync_known_hosts__ssh_keyscan_timeout: 5
 iac__shared__sync_known_hosts__ssh_keyscan_retries: 30
 iac__shared__sync_known_hosts__ssh_keyscan_delay: 2
-iac__shared__sync_known_hosts__ssh_keyscan_types: "rsa,ecdsa,ed25519"
+iac__shared__sync_known_hosts__ssh_keyscan_types: "ed25519,ecdsa,rsa"
 iac__shared__sync_known_hosts__hash_hosts: true

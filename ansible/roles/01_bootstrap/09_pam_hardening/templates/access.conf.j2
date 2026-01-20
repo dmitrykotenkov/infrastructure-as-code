@@ -1,0 +1,15 @@
+# Managed by Ansible - PAM Hardening
+# /etc/security/access.conf - login access control
+
+# Format: permission : users : origins
+# permission: + (allow) or - (deny)
+# users: user names, group names (@group), ALL
+# origins: LOCAL, hostname, IP, network, ALL
+
+{% for rule in iac__bootstrap__pam_hardening__access_rules %}
+{{ rule }}
+{% endfor %}
+
+# Default: allow all (override with explicit rules above)
+# Uncomment to enable default deny:
+# -:ALL:ALL

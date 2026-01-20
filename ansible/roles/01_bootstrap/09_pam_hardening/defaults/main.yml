@@ -1,0 +1,78 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__pam_hardening__skip: false
+
+# Minimum password length
+iac__bootstrap__pam_hardening__minlen: 14
+# Minimum character classes required (lowercase, uppercase, digits, special)
+iac__bootstrap__pam_hardening__minclass: 3
+iac__bootstrap__pam_hardening__maxrepeat: 3
+iac__bootstrap__pam_hardening__maxclassrepeat: 4
+# Require at least N digits
+iac__bootstrap__pam_hardening__dcredit: -1
+# Require at least N uppercase
+iac__bootstrap__pam_hardening__ucredit: -1
+# Require at least N lowercase
+iac__bootstrap__pam_hardening__lcredit: -1
+# Require at least N special characters
+iac__bootstrap__pam_hardening__ocredit: -1
+# Reject passwords containing username
+iac__bootstrap__pam_hardening__usercheck: 1
+# Enforce password quality for root user
+iac__bootstrap__pam_hardening__enforce_for_root: true
+# Number of retries before returning error
+iac__bootstrap__pam_hardening__retry: 3
+
+# Number of previous passwords to remember
+iac__bootstrap__pam_hardening__remember: 5
+
+# Enable account lockout after failed attempts
+iac__bootstrap__pam_hardening__faillock_enabled: true
+# Number of failed attempts before lockout
+iac__bootstrap__pam_hardening__faillock_deny: 5
+# Lockout duration in seconds (0 = until admin unlock)
+iac__bootstrap__pam_hardening__faillock_unlock_time: 900
+# Time window for counting failures (seconds)
+iac__bootstrap__pam_hardening__faillock_fail_interval: 900
+# Apply lockout to root account
+iac__bootstrap__pam_hardening__faillock_even_deny_root: false
+# Root lockout duration (if enabled)
+iac__bootstrap__pam_hardening__faillock_root_unlock_time: 60
+
+# Maximum number of processes per user
+iac__bootstrap__pam_hardening__max_logins: 10
+# Maximum number of open files
+iac__bootstrap__pam_hardening__nofile_soft: 65535
+iac__bootstrap__pam_hardening__nofile_hard: 65535
+
+# Delay after failed login (microseconds) - 2 seconds
+iac__bootstrap__pam_hardening__fail_delay: 2000000
+
+# Restrict root login to specific TTYs
+iac__bootstrap__pam_hardening__securetty_enabled: true
+# TTYs where root can login (console only)
+iac__bootstrap__pam_hardening__securetty_list:
+  - console
+  - tty1
+  - tty2
+  - tty3
+  - tty4
+  - tty5
+  - tty6
+
+# Enable access.conf restrictions
+iac__bootstrap__pam_hardening__access_conf_enabled: false
+# Access control rules (deny by default, allow specific)
+# Format: "+:user:origin" or "-:user:origin"
+iac__bootstrap__pam_hardening__access_rules: []
+# Example:
+# - "+:root:LOCAL"
+# - "+:admin:ALL"
+# - "-:ALL:ALL"
+
+# Enable pam_wheel (restrict su to wheel/sudo group)
+iac__bootstrap__pam_hardening__wheel_enabled: true
+# Group allowed to use su
+iac__bootstrap__pam_hardening__wheel_group: "sudo"
