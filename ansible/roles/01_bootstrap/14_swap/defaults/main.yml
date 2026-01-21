@@ -4,12 +4,12 @@
 # =============================================================================
 iac__bootstrap__swap__skip: false
 
+# Remove and disable swap completely (required for Kubernetes)
+# Set to false for traditional servers that need swap
 iac__bootstrap__swap__remove: false
 
 iac__bootstrap__swap__file_path: "/swap.img"
-# Swap file size (supports K, M, G suffixes)
 iac__bootstrap__swap__file_size: "2G"
-
 # vm.swappiness value (0-100)
 # Lower = prefer RAM, only swap when necessary
 # Higher = more aggressive swapping
