@@ -1,0 +1,181 @@
+---
+# =============================================================================
+# Role: 16_process_accounting
+# =============================================================================
+# Configures Linux process accounting (psacct/acct) to track all executed
+# commands, user activity, and resource usage for forensics and auditing.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | Process Accounting (0/4) | Preconditions [1/2] | Skip role if disabled
+  ansible.builtin.meta: end_host
+  when: iac__bootstrap__process_accounting__skip | bool
+
+- name: Bootstrap | Process Accounting (0/4) | Preconditions [2/2] | Handle removal
+  when: iac__bootstrap__process_accounting__remove | bool
+  block:
+    - name: Bootstrap | Process Accounting (0/4) | Preconditions [2a/2] | Stop acct service
+      ansible.builtin.service:
+        name: acct
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Bootstrap | Process Accounting (0/4) | Preconditions [2b/2] | Disable process accounting
+      ansible.builtin.command: accton off
+      failed_when: false
+      changed_when: false
+
+    - name: Bootstrap | Process Accounting (0/4) | Preconditions [2c/2] | Remove logrotate config
+      ansible.builtin.file:
+        path: /etc/logrotate.d/psacct
+        state: absent
+
+    - name: Bootstrap | Process Accounting (0/4) | Preconditions [2d/2] | Remove daily report cron
+      ansible.builtin.file:
+        path: /etc/cron.daily/process-accounting-report
+        state: absent
+
+    - name: Bootstrap | Process Accounting (0/4) | Preconditions [2e/2] | End host after removal
+      ansible.builtin.meta: end_host
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+- name: Bootstrap | Process Accounting (1/4) | Validation [1/1] | Assert log rotation is valid
+  ansible.builtin.assert:
+    that:
+      - iac__bootstrap__process_accounting__log_rotate_frequency in ['daily', 'weekly', 'monthly']
+      - (iac__bootstrap__process_accounting__log_rotate_file_count | int) > 0
+    fail_msg: "Log rotation settings are invalid"
+    quiet: true
+  changed_when: true
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Package Installation
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [1/8] | Install acct package
+  ansible.builtin.package:
+    name: acct
+    state: present
+
+# -----------------------------------------------------------------------------
+# Directory Setup
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [2/8] | Create account log directory
+  ansible.builtin.file:
+    path: "{{ iac__bootstrap__process_accounting__log_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [3/8] | Create reports directory
+  ansible.builtin.file:
+    path: "{{ iac__bootstrap__process_accounting__daily_reports_directory }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  when: iac__bootstrap__process_accounting__generate_daily_reports | bool
+
+# -----------------------------------------------------------------------------
+# Service Configuration
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [4/8] | Enable and start acct service
+  ansible.builtin.service:
+    name: acct
+    state: started
+    enabled: true
+  when: iac__bootstrap__process_accounting__enabled | bool
+
+# -----------------------------------------------------------------------------
+# Log Rotation
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [5/8] | Configure logrotate for acct
+  ansible.builtin.template:
+    src: logrotate-psacct.j2
+    dest: /etc/logrotate.d/psacct
+    owner: root
+    group: root
+    mode: "0644"
+
+# -----------------------------------------------------------------------------
+# Daily Reports (Optional)
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [6/8] | Create daily report script
+  ansible.builtin.template:
+    src: daily-report.sh.j2
+    dest: /etc/cron.daily/process-accounting-report
+    owner: root
+    group: root
+    mode: "0755"
+  when: iac__bootstrap__process_accounting__generate_daily_reports | bool
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [7/8] | Remove daily report script if disabled
+  ansible.builtin.file:
+    path: /etc/cron.daily/process-accounting-report
+    state: absent
+  when: not (iac__bootstrap__process_accounting__generate_daily_reports | bool)
+
+# -----------------------------------------------------------------------------
+# Report Cleanup
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Process Accounting (2/4) | Main Tasks [8/8] | Create report cleanup cron
+  ansible.builtin.cron:
+    name: "Clean old process accounting reports"
+    special_time: daily
+    job: "find {{ iac__bootstrap__process_accounting__daily_reports_directory }} -name '*.txt' -mtime +{{ iac__bootstrap__process_accounting__daily_report_retention_days }} -delete"
+    user: root
+  when: iac__bootstrap__process_accounting__generate_daily_reports | bool
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | Process Accounting (3/4) | Result Validation [1/3] | Verify acct service running
+  ansible.builtin.command: systemctl is-active acct
+  register: __iac__bootstrap__process_accounting__service_status
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap | Process Accounting (3/4) | Result Validation [2/3] | Check accounting file exists
+  ansible.builtin.stat:
+    path: "{{ iac__bootstrap__process_accounting__log_file }}"
+  register: __iac__bootstrap__process_accounting__log_stat
+
+- name: Bootstrap | Process Accounting (3/4) | Result Validation [3/3] | Assert accounting is active
+  ansible.builtin.assert:
+    that:
+      - __iac__bootstrap__process_accounting__service_status.stdout == "active"
+    fail_msg: "Process accounting service is not running"
+    quiet: true
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | Process Accounting (4/4) | Completion Status [1/1] | Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "  Process Accounting configuration completed"
+      - "  Service: {{ __iac__bootstrap__process_accounting__service_status.stdout }}"
+      - "  Log file: {{ iac__bootstrap__process_accounting__log_file }}"
+      - "  Log exists: {{ __iac__bootstrap__process_accounting__log_stat.stat.exists }}"
+      - "  Log rotation: {{ iac__bootstrap__process_accounting__log_rotate_frequency }}, keep {{ iac__bootstrap__process_accounting__log_rotate_file_count }}"
+      - "  Daily reports: {{ iac__bootstrap__process_accounting__generate_daily_reports | bool | ternary('enabled', 'disabled') }}"
+      - "  Report dir: {{ iac__bootstrap__process_accounting__daily_reports_directory }}"

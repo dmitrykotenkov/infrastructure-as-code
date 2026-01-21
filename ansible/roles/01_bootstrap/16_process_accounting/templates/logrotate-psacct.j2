@@ -1,0 +1,18 @@
+# Process Accounting Log Rotation
+# Managed by Ansible - Do not edit manually
+
+{{ iac__bootstrap__process_accounting__log_file }} {
+    {{ iac__bootstrap__process_accounting__log_rotate_frequency }}
+    rotate {{ iac__bootstrap__process_accounting__log_rotate_file_count }}
+    missingok
+    notifempty
+{% if iac__bootstrap__process_accounting__rotated_log_file_compress | bool %}
+    compress
+    delaycompress
+{% endif %}
+    create 0640 root root
+    postrotate
+        # Restart accounting to use new file
+        /usr/sbin/accton {{ iac__bootstrap__process_accounting__log_file }}
+    endscript
+}

@@ -1,0 +1,410 @@
+---
+# =============================================================================
+# Role: 99_verify
+# =============================================================================
+# Verifies bootstrap hardening has been applied correctly and system is ready
+# for Kubernetes deployment. Read-only audit role - makes no changes.
+# =============================================================================
+
+# =============================================================================
+# Section 0/4: Preconditions
+# =============================================================================
+
+- name: Bootstrap | Verify (0/4) | Preconditions [1/1] | Initialize verification results
+  ansible.builtin.set_fact:
+    __iac__bootstrap__verify__results: []
+    __iac__bootstrap__verify__failures: []
+  when: not (iac__bootstrap__verify__skip | bool)
+
+# =============================================================================
+# Section 1/4: Validation
+# =============================================================================
+
+# No input validation needed - this role only reads system state
+
+# =============================================================================
+# Section 2/4: Main Tasks
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# System Configuration Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Verify (2/4) | Main Tasks | System configuration checks
+  when:
+    - not (iac__bootstrap__verify__skip | bool)
+    - iac__bootstrap__verify__check_system_configuration | bool
+  block:
+    - name: Bootstrap | Verify (2/4) | Main Tasks [1/5] | Check hostname is set
+      ansible.builtin.command: hostname
+      register: __iac__bootstrap__verify__hostname
+      changed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [2/5] | Check timezone is configured
+      ansible.builtin.stat:
+        path: /etc/localtime
+      register: __iac__bootstrap__verify__timezone
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [3/5] | Check locale is configured
+      ansible.builtin.command: locale
+      register: __iac__bootstrap__verify__locale
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [4/5] | Check core dumps are disabled
+      ansible.builtin.command: ulimit -c
+      register: __iac__bootstrap__verify__core_dumps
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [5/5] | Record system check results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__system_results:
+          hostname: "{{ __iac__bootstrap__verify__hostname.stdout | trim }}"
+          hostname_ok: "{{ (__iac__bootstrap__verify__hostname.stdout | trim | length) > 0 }}"
+          timezone_ok: "{{ __iac__bootstrap__verify__timezone.stat.exists }}"
+          locale_ok: "{{ __iac__bootstrap__verify__locale.rc == 0 }}"
+          core_dumps_disabled: "{{ (__iac__bootstrap__verify__core_dumps.stdout | trim) == '0' }}"
+
+# -----------------------------------------------------------------------------
+# Security Hardening Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Verify (2/4) | Main Tasks | Security hardening checks
+  when:
+    - not (iac__bootstrap__verify__skip | bool)
+    - iac__bootstrap__verify__check_security_hardening | bool
+  block:
+    - name: Bootstrap | Verify (2/4) | Main Tasks [6/15] | Check SSH configuration
+      ansible.builtin.command: sshd -T
+      register: __iac__bootstrap__verify__sshd_config
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [7/15] | Parse SSH security settings
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__ssh_settings:
+          # Both "no" and "prohibit-password" are secure (prohibit-password allows key-only root access)
+          permit_root_login: >-
+            {{
+              ('permitrootlogin no' in (__iac__bootstrap__verify__sshd_config.stdout | lower)) or
+              ('permitrootlogin prohibit-password' in (__iac__bootstrap__verify__sshd_config.stdout | lower))
+            }}
+          password_auth: "{{ 'passwordauthentication no' in (__iac__bootstrap__verify__sshd_config.stdout | lower) }}"
+          pubkey_auth: "{{ 'pubkeyauthentication yes' in (__iac__bootstrap__verify__sshd_config.stdout | lower) }}"
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [8/15] | Check AppArmor status
+      ansible.builtin.command: aa-status --enabled
+      register: __iac__bootstrap__verify__apparmor
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [9/15] | Check PAM configuration exists
+      ansible.builtin.stat:
+        path: /etc/pam.d/common-password
+      register: __iac__bootstrap__verify__pam_config
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [10/15] | Check audit rules exist
+      ansible.builtin.stat:
+        path: /etc/audit/rules.d
+      register: __iac__bootstrap__verify__audit_rules
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [11/15] | Check fail2ban jail configuration
+      ansible.builtin.stat:
+        path: /etc/fail2ban/jail.local
+      register: __iac__bootstrap__verify__fail2ban_config
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [12/15] | Record security check results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__security_results:
+          ssh_root_disabled: "{{ __iac__bootstrap__verify__ssh_settings.permit_root_login }}"
+          ssh_password_disabled: "{{ __iac__bootstrap__verify__ssh_settings.password_auth }}"
+          ssh_pubkey_enabled: "{{ __iac__bootstrap__verify__ssh_settings.pubkey_auth }}"
+          apparmor_enabled: "{{ __iac__bootstrap__verify__apparmor.rc == 0 }}"
+          pam_configured: "{{ __iac__bootstrap__verify__pam_config.stat.exists }}"
+          audit_rules_exist: "{{ __iac__bootstrap__verify__audit_rules.stat.exists }}"
+          fail2ban_configured: "{{ __iac__bootstrap__verify__fail2ban_config.stat.exists }}"
+
+# -----------------------------------------------------------------------------
+# Network Configuration Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Verify (2/4) | Main Tasks | Network configuration checks
+  when:
+    - not (iac__bootstrap__verify__skip | bool)
+    - iac__bootstrap__verify__check_network_configuration | bool
+  block:
+    - name: Bootstrap | Verify (2/4) | Main Tasks [13/20] | Check UFW status
+      ansible.builtin.command: ufw status
+      register: __iac__bootstrap__verify__ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [14/20] | Check SSH port is open in firewall
+      ansible.builtin.shell: |
+        set -o pipefail
+        ufw status | grep -E "^{{ iac__bootstrap__verify__expected_ssh_port }}/tcp"
+      args:
+        executable: /bin/bash
+      register: __iac__bootstrap__verify__ssh_port_open
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [15/20] | Check DNS resolution
+      ansible.builtin.command: host google.com
+      register: __iac__bootstrap__verify__dns_resolution
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [16/20] | Check dnsmasq service (if applicable)
+      ansible.builtin.systemd:
+        name: dnsmasq
+      register: __iac__bootstrap__verify__dnsmasq
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [17/20] | Record network check results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__network_results:
+          ufw_active: "{{ 'Status: active' in __iac__bootstrap__verify__ufw_status.stdout }}"
+          ssh_port_allowed: "{{ __iac__bootstrap__verify__ssh_port_open.rc == 0 }}"
+          dns_working: "{{ __iac__bootstrap__verify__dns_resolution.rc == 0 }}"
+          dnsmasq_running: "{{ (__iac__bootstrap__verify__dnsmasq.status.ActiveState | default('unknown')) == 'active' }}"
+
+# -----------------------------------------------------------------------------
+# Kubernetes Readiness Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Verify (2/4) | Main Tasks | Kubernetes readiness checks
+  when:
+    - not (iac__bootstrap__verify__skip | bool)
+    - iac__bootstrap__verify__check_kubernetes_readiness | bool
+  block:
+    - name: Bootstrap | Verify (2/4) | Main Tasks [18/25] | Check swap is disabled
+      ansible.builtin.command: swapon --show
+      register: __iac__bootstrap__verify__swap_status
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [19/25] | Check swap in fstab
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -v '^#' /etc/fstab | grep -E '\s+swap\s+' || true
+      args:
+        executable: /bin/bash
+      register: __iac__bootstrap__verify__fstab_swap
+      changed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [20/25] | Check required kernel modules
+      ansible.builtin.shell: |
+        set -o pipefail
+        lsmod | grep -E "^{{ item }}\s"
+      args:
+        executable: /bin/bash
+      loop: "{{ iac__bootstrap__verify__expected_kernel_modules }}"
+      register: __iac__bootstrap__verify__kernel_modules
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [21/25] | Check sysctl settings for K8s
+      ansible.builtin.command: "sysctl {{ item.key }}"
+      loop: "{{ iac__bootstrap__verify__expected_sysctl | dict2items }}"
+      register: __iac__bootstrap__verify__sysctl_values
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [22/25] | Parse sysctl results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__sysctl_ok: >-
+          {{
+            __iac__bootstrap__verify__sysctl_values.results
+            | selectattr('rc', 'equalto', 0)
+            | map(attribute='stdout')
+            | select('search', '= 1')
+            | list
+            | length == iac__bootstrap__verify__expected_sysctl | length
+          }}
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [23/25] | Check IP forwarding
+      ansible.builtin.command: cat /proc/sys/net/ipv4/ip_forward
+      register: __iac__bootstrap__verify__ip_forward
+      changed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [24/25] | Record Kubernetes readiness results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__k8s_results:
+          swap_disabled: "{{ (__iac__bootstrap__verify__swap_status.stdout | trim | length) == 0 }}"
+          swap_fstab_clean: "{{ (__iac__bootstrap__verify__fstab_swap.stdout | trim | length) == 0 }}"
+          kernel_modules_loaded: >-
+            {{
+              __iac__bootstrap__verify__kernel_modules.results
+              | selectattr('rc', 'equalto', 0)
+              | list
+              | length == iac__bootstrap__verify__expected_kernel_modules | length
+            }}
+          sysctl_configured: "{{ __iac__bootstrap__verify__sysctl_ok }}"
+          ip_forwarding_enabled: "{{ (__iac__bootstrap__verify__ip_forward.stdout | trim) == '1' }}"
+
+# -----------------------------------------------------------------------------
+# Service Status Checks
+# -----------------------------------------------------------------------------
+
+- name: Bootstrap | Verify (2/4) | Main Tasks | Service status checks
+  when:
+    - not (iac__bootstrap__verify__skip | bool)
+    - iac__bootstrap__verify__check_service_statuses | bool
+  block:
+    - name: Bootstrap | Verify (2/4) | Main Tasks [25/28] | Check expected services status
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      loop: "{{ iac__bootstrap__verify__expected_services }}"
+      register: __iac__bootstrap__verify__services
+      changed_when: false
+      failed_when: false
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [26/28] | Parse service status results
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__service_status: >-
+          {{
+            dict(
+              __iac__bootstrap__verify__services.results
+              | map(attribute='item')
+              | zip(
+                  __iac__bootstrap__verify__services.results
+                  | map(attribute='status', default={})
+                  | map(attribute='ActiveState', default='unknown')
+                )
+            )
+          }}
+
+    - name: Bootstrap | Verify (2/4) | Main Tasks [27/28] | Count running services
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__services_running: >-
+          {{
+            __iac__bootstrap__verify__services.results
+            | selectattr('status.ActiveState', 'defined')
+            | selectattr('status.ActiveState', 'equalto', 'active')
+            | list
+            | length
+          }}
+        __iac__bootstrap__verify__services_expected: "{{ iac__bootstrap__verify__expected_services | length }}"
+
+# =============================================================================
+# Section 3/4: Result Validation
+# =============================================================================
+
+- name: Bootstrap | Verify (3/4) | Result Validation | Compile verification report
+  when: not (iac__bootstrap__verify__skip | bool)
+  block:
+    - name: Bootstrap | Verify (3/4) | Result Validation [1/4] | Build comprehensive report
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__report:
+          system: "{{ __iac__bootstrap__verify__system_results | default({}) }}"
+          security: "{{ __iac__bootstrap__verify__security_results | default({}) }}"
+          network: "{{ __iac__bootstrap__verify__network_results | default({}) }}"
+          kubernetes: "{{ __iac__bootstrap__verify__k8s_results | default({}) }}"
+          services: "{{ __iac__bootstrap__verify__service_status | default({}) }}"
+
+    - name: Bootstrap | Verify (3/4) | Result Validation [2/4] | Identify critical failures
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__critical_failures: >-
+          {{
+            []
+            + (["swap_not_disabled"] if not (__iac__bootstrap__verify__k8s_results.swap_disabled | default(false) | bool) else [])
+            + (["swap_in_fstab"] if not (__iac__bootstrap__verify__k8s_results.swap_fstab_clean | default(false) | bool) else [])
+            + (["ssh_root_enabled"] if not (__iac__bootstrap__verify__security_results.ssh_root_disabled | default(false) | bool) else [])
+            + (["firewall_inactive"] if not (__iac__bootstrap__verify__network_results.ufw_active | default(false) | bool) else [])
+            + (["ip_forward_disabled"] if not (__iac__bootstrap__verify__k8s_results.ip_forwarding_enabled | default(false) | bool) else [])
+          }}
+
+    - name: Bootstrap | Verify (3/4) | Result Validation [3/4] | Identify warnings
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__warnings: >-
+          {{
+            []
+            + (["kernel_modules_missing"] if not (__iac__bootstrap__verify__k8s_results.kernel_modules_loaded | default(false) | bool) else [])
+            + (["sysctl_not_configured"] if not (__iac__bootstrap__verify__k8s_results.sysctl_configured | default(false) | bool) else [])
+            + (["apparmor_disabled"] if not (__iac__bootstrap__verify__security_results.apparmor_enabled | default(false) | bool) else [])
+            + (["dns_not_working"] if not (__iac__bootstrap__verify__network_results.dns_working | default(false) | bool) else [])
+          }}
+
+    - name: Bootstrap | Verify (3/4) | Result Validation [4/4] | Calculate overall status
+      ansible.builtin.set_fact:
+        __iac__bootstrap__verify__overall_status: >-
+          {{ "FAILED" if (__iac__bootstrap__verify__critical_failures | length) > 0
+             else ("WARNING" if (__iac__bootstrap__verify__warnings | length) > 0
+             else "PASSED") }}
+
+# =============================================================================
+# Section 4/4: Completion Status
+# =============================================================================
+
+- name: Bootstrap | Verify (4/4) | Completion Status | Display verification summary
+  when: not (iac__bootstrap__verify__skip | bool)
+  block:
+    - name: Bootstrap | Verify (4/4) | Completion Status [1/4] | Display overall status
+      ansible.builtin.debug:
+        msg:
+          - "  BOOTSTRAP VERIFICATION COMPLETED"
+          - "  STATUS: {{ __iac__bootstrap__verify__overall_status }}"
+          - "  Host: {{ inventory_hostname }}"
+          - "  Hostname: {{ __iac__bootstrap__verify__system_results.hostname | default('unknown') }}"
+
+    - name: Bootstrap | Verify (4/4) | Completion Status [2/4] | Display critical failures
+      ansible.builtin.debug:
+        msg:
+          - "  CRITICAL FAILURES:"
+          - "  {{ __iac__bootstrap__verify__critical_failures | to_nice_yaml | indent(4, first=true) }}"
+      when: (__iac__bootstrap__verify__critical_failures | length) > 0
+
+    - name: Bootstrap | Verify (4/4) | Completion Status [3/4] | Display warnings
+      ansible.builtin.debug:
+        msg:
+          - "  WARNINGS:"
+          - "  {{ __iac__bootstrap__verify__warnings | to_nice_yaml | indent(4, first=true) }}"
+      when: (__iac__bootstrap__verify__warnings | length) > 0
+
+    - name: Bootstrap | Verify (4/4) | Completion Status [4/4] | Display detailed report
+      ansible.builtin.debug:
+        msg:
+          - "  DETAILED REPORT:"
+          - ""
+          - "  System Configuration:"
+          - "    - Hostname set: {{ __iac__bootstrap__verify__system_results.hostname_ok | default('unknown') }}"
+          - "    - Timezone configured: {{ __iac__bootstrap__verify__system_results.timezone_ok | default('unknown') }}"
+          - "    - Core dumps disabled: {{ __iac__bootstrap__verify__system_results.core_dumps_disabled | default('unknown') }}"
+          - ""
+          - "  Security Hardening:"
+          - "    - SSH root login disabled: {{ __iac__bootstrap__verify__security_results.ssh_root_disabled | default('unknown') }}"
+          - "    - SSH password auth disabled: {{ __iac__bootstrap__verify__security_results.ssh_password_disabled | default('unknown') }}"
+          - "    - SSH pubkey auth enabled: {{ __iac__bootstrap__verify__security_results.ssh_pubkey_enabled | default('unknown') }}"
+          - "    - AppArmor enabled: {{ __iac__bootstrap__verify__security_results.apparmor_enabled | default('unknown') }}"
+          - "    - Audit rules exist: {{ __iac__bootstrap__verify__security_results.audit_rules_exist | default('unknown') }}"
+          - "    - Fail2ban configured: {{ __iac__bootstrap__verify__security_results.fail2ban_configured | default('unknown') }}"
+          - ""
+          - "  Network Configuration:"
+          - "    - UFW firewall active: {{ __iac__bootstrap__verify__network_results.ufw_active | default('unknown') }}"
+          - "    - SSH port allowed: {{ __iac__bootstrap__verify__network_results.ssh_port_allowed | default('unknown') }}"
+          - "    - DNS resolution working: {{ __iac__bootstrap__verify__network_results.dns_working | default('unknown') }}"
+          - "    - DNSmasq running: {{ __iac__bootstrap__verify__network_results.dnsmasq_running | default('unknown') }}"
+          - ""
+          - "  Kubernetes Readiness:"
+          - "    - Swap disabled: {{ __iac__bootstrap__verify__k8s_results.swap_disabled | default('unknown') }}"
+          - "    - Swap removed from fstab: {{ __iac__bootstrap__verify__k8s_results.swap_fstab_clean | default('unknown') }}"
+          - "    - Kernel modules loaded: {{ __iac__bootstrap__verify__k8s_results.kernel_modules_loaded | default('unknown') }}"
+          - "    - Sysctl configured: {{ __iac__bootstrap__verify__k8s_results.sysctl_configured | default('unknown') }}"
+          - "    - IP forwarding enabled: {{ __iac__bootstrap__verify__k8s_results.ip_forwarding_enabled | default('unknown') }}"
+          - ""
+          - "  Services Status ({{ __iac__bootstrap__verify__services_running | default(0) }}/{{ __iac__bootstrap__verify__services_expected | default(0) }} running):"
+          - "{{ __iac__bootstrap__verify__service_status | default({}) | to_nice_yaml | indent(4, first=true) }}"
+          - ""
+          - "============================================================"
+
+    - name: Bootstrap | Verify (4/4) | Completion Status [5/5] | Fail if critical errors found
+      ansible.builtin.fail:
+        msg: >-
+          Bootstrap verification failed with {{ __iac__bootstrap__verify__critical_failures | length }} critical error(s):
+          {{ __iac__bootstrap__verify__critical_failures | join(', ') }}
+      when:
+        - iac__bootstrap__verify__fail_on_error | bool
+        - (__iac__bootstrap__verify__critical_failures | length) > 0

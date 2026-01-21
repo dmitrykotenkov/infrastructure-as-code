@@ -1,0 +1,49 @@
+---
+# =============================================================================
+# Required variables (must be set at playbook or inventory level)
+# =============================================================================
+
+# None - this role uses variables from other bootstrap roles
+
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__verify__skip: false
+
+# Fail playbook on verification errors (set to false for dry-run/audit mode)
+iac__bootstrap__verify__fail_on_error: true
+
+# -----------------------------------------------------------------------------
+# Verification modules to run (disable specific checks if needed)
+# -----------------------------------------------------------------------------
+
+iac__bootstrap__verify__check_system_configuration: true
+iac__bootstrap__verify__check_security_hardening: true
+iac__bootstrap__verify__check_network_configuration: true
+iac__bootstrap__verify__check_kubernetes_readiness: true
+iac__bootstrap__verify__check_service_statuses: true
+
+# -----------------------------------------------------------------------------
+# Expected values for verification
+# -----------------------------------------------------------------------------
+
+# Expected SSH port (should match iac__bootstrap__ssh_settings__port)
+iac__bootstrap__verify__expected_ssh_port: 22
+
+# Expected services that should be running
+iac__bootstrap__verify__expected_services:
+  - auditd
+  - fail2ban
+  - ufw
+  - acct
+
+# Expected kernel modules for Kubernetes
+iac__bootstrap__verify__expected_kernel_modules:
+  - overlay
+  - br_netfilter
+
+# Expected sysctl values for Kubernetes networking
+iac__bootstrap__verify__expected_sysctl:
+  net.bridge.bridge-nf-call-iptables: "1"
+  net.bridge.bridge-nf-call-ip6tables: "1"
+  net.ipv4.ip_forward: "1"

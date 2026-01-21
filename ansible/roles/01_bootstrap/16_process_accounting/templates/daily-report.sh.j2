@@ -1,0 +1,67 @@
+#!/bin/bash
+# Process Accounting Daily Report
+# Managed by Ansible - Do not edit manually
+#
+# Generates daily summary of process accounting data
+# Run via cron.daily
+
+set -euo pipefail
+
+REPORT_DIR="{{ iac__bootstrap__process_accounting__daily_reports_directory }}"
+REPORT_FILE="${REPORT_DIR}/report-$(date +%Y%m%d).txt"
+ACCT_FILE="{{ iac__bootstrap__process_accounting__log_file }}"
+
+# Ensure report directory exists
+mkdir -p "${REPORT_DIR}"
+
+# Generate report header
+{
+    echo "========================================================================"
+    echo "  Process Accounting Daily Report"
+    echo "  Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "  Hostname: $(hostname)"
+    echo "========================================================================"
+    echo ""
+
+    # Summary by command (top 20)
+    echo "--- Top 20 Commands by Execution Count ---"
+    if command -v sa &> /dev/null; then
+        sa -c -n 20 2>/dev/null || echo "(No data available)"
+    else
+        echo "(sa command not available)"
+    fi
+    echo ""
+
+    # Summary by user
+    echo "--- Activity by User ---"
+    if command -v sa &> /dev/null; then
+        sa -m 2>/dev/null || echo "(No data available)"
+    else
+        echo "(sa command not available)"
+    fi
+    echo ""
+
+    # Last commands (if lastcomm available)
+    echo "--- Recent Commands (last 50) ---"
+    if command -v lastcomm &> /dev/null; then
+        lastcomm -f "${ACCT_FILE}" 2>/dev/null | head -50 || echo "(No data available)"
+    else
+        echo "(lastcomm command not available)"
+    fi
+    echo ""
+
+    # Currently logged in users
+    echo "--- Currently Logged In Users ---"
+    who 2>/dev/null || echo "(No data available)"
+    echo ""
+
+    echo "========================================================================"
+    echo "  End of Report"
+    echo "========================================================================"
+
+} > "${REPORT_FILE}"
+
+# Set permissions
+chmod 640 "${REPORT_FILE}"
+
+exit 0
