@@ -254,11 +254,9 @@
     - name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [20/29] | Display upgrade warning
       ansible.builtin.debug:
         msg:
-          - "════════════════════════════════════════════════════════════════"
           - "  STARTING DISTRIBUTION UPGRADE"
           - "  From: Ubuntu {{ __iac__bootstrap__dist_upgrade__current_version }} -> {{ iac__bootstrap__dist_upgrade__target_version }}"
           - "  This may take 30-60 minutes. Do not interrupt."
-          - "════════════════════════════════════════════════════════════════"
 
     - name: Bootstrap | Dist Upgrade (2/4) | Main Tasks [21/29] | Run do-release-upgrade
       ansible.builtin.shell: |

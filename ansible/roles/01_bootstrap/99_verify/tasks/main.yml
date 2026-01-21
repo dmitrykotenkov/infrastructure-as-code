@@ -84,12 +84,8 @@
     - name: Bootstrap | Verify (2/4) | Main Tasks [7/15] | Parse SSH security settings
       ansible.builtin.set_fact:
         __iac__bootstrap__verify__ssh_settings:
-          # Both "no" and "prohibit-password" are secure (prohibit-password allows key-only root access)
-          permit_root_login: >-
-            {{
-              ('permitrootlogin no' in (__iac__bootstrap__verify__sshd_config.stdout | lower)) or
-              ('permitrootlogin prohibit-password' in (__iac__bootstrap__verify__sshd_config.stdout | lower))
-            }}
+          # Root login must be completely disabled ("no")
+          permit_root_login: "{{ 'permitrootlogin no' in (__iac__bootstrap__verify__sshd_config.stdout | lower) }}"
           password_auth: "{{ 'passwordauthentication no' in (__iac__bootstrap__verify__sshd_config.stdout | lower) }}"
           pubkey_auth: "{{ 'pubkeyauthentication yes' in (__iac__bootstrap__verify__sshd_config.stdout | lower) }}"
 
@@ -172,80 +168,6 @@
               dnsmasq_running: "{{ (__iac__bootstrap__verify__dnsmasq.status.ActiveState | default('unknown')) == 'active' }}"
 
     # -----------------------------------------------------------------------------
-    # Kubernetes Readiness Checks
-    # -----------------------------------------------------------------------------
-
-    - name: Bootstrap | Verify (2/4) | Main Tasks | Kubernetes readiness checks
-      when:
-        - not (iac__bootstrap__verify__skip | bool)
-        - iac__bootstrap__verify__check_kubernetes_readiness | bool
-      block:
-        - name: Bootstrap | Verify (2/4) | Main Tasks [18/25] | Check swap is disabled
-          ansible.builtin.command: swapon --show
-          register: __iac__bootstrap__verify__swap_status
-          changed_when: false
-          failed_when: false
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [19/25] | Check swap in fstab
-          ansible.builtin.shell: |
-            set -o pipefail
-            grep -v '^#' /etc/fstab | grep -E '\s+swap\s+' || true
-          args:
-            executable: /bin/bash
-          register: __iac__bootstrap__verify__fstab_swap
-          changed_when: false
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [20/25] | Check required kernel modules
-          ansible.builtin.shell: |
-            set -o pipefail
-            lsmod | grep -E "^{{ item }}\s"
-          args:
-            executable: /bin/bash
-          loop: "{{ iac__bootstrap__verify__expected_kernel_modules }}"
-          register: __iac__bootstrap__verify__kernel_modules
-          changed_when: false
-          failed_when: false
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [21/25] | Check sysctl settings for K8s
-          ansible.builtin.command: "sysctl {{ item.key }}"
-          loop: "{{ iac__bootstrap__verify__expected_sysctl | dict2items }}"
-          register: __iac__bootstrap__verify__sysctl_values
-          changed_when: false
-          failed_when: false
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [22/25] | Parse sysctl results
-          ansible.builtin.set_fact:
-            __iac__bootstrap__verify__sysctl_ok: >-
-              {{
-                __iac__bootstrap__verify__sysctl_values.results
-                | selectattr('rc', 'equalto', 0)
-                | map(attribute='stdout')
-                | select('search', '= 1')
-                | list
-                | length == iac__bootstrap__verify__expected_sysctl | length
-              }}
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [23/25] | Check IP forwarding
-          ansible.builtin.command: cat /proc/sys/net/ipv4/ip_forward
-          register: __iac__bootstrap__verify__ip_forward
-          changed_when: false
-
-        - name: Bootstrap | Verify (2/4) | Main Tasks [24/25] | Record Kubernetes readiness results
-          ansible.builtin.set_fact:
-            __iac__bootstrap__verify__k8s_results:
-              swap_disabled: "{{ (__iac__bootstrap__verify__swap_status.stdout | trim | length) == 0 }}"
-              swap_fstab_clean: "{{ (__iac__bootstrap__verify__fstab_swap.stdout | trim | length) == 0 }}"
-              kernel_modules_loaded: >-
-                {{
-                  __iac__bootstrap__verify__kernel_modules.results
-                  | selectattr('rc', 'equalto', 0)
-                  | list
-                  | length == iac__bootstrap__verify__expected_kernel_modules | length
-                }}
-              sysctl_configured: "{{ __iac__bootstrap__verify__sysctl_ok }}"
-              ip_forwarding_enabled: "{{ (__iac__bootstrap__verify__ip_forward.stdout | trim) == '1' }}"
-
-    # -----------------------------------------------------------------------------
     # Service Status Checks
     # -----------------------------------------------------------------------------
 
@@ -302,7 +224,6 @@
           system: "{{ __iac__bootstrap__verify__system_results | default({}) }}"
           security: "{{ __iac__bootstrap__verify__security_results | default({}) }}"
           network: "{{ __iac__bootstrap__verify__network_results | default({}) }}"
-          kubernetes: "{{ __iac__bootstrap__verify__k8s_results | default({}) }}"
           services: "{{ __iac__bootstrap__verify__service_status | default({}) }}"
 
     - name: Bootstrap | Verify (3/4) | Result Validation [2/4] | Identify critical failures
@@ -310,11 +231,8 @@
         __iac__bootstrap__verify__critical_failures: >-
           {{
             []
-            + (["swap_not_disabled"] if not (__iac__bootstrap__verify__k8s_results.swap_disabled | default(false) | bool) else [])
-            + (["swap_in_fstab"] if not (__iac__bootstrap__verify__k8s_results.swap_fstab_clean | default(false) | bool) else [])
             + (["ssh_root_enabled"] if not (__iac__bootstrap__verify__security_results.ssh_root_disabled | default(false) | bool) else [])
             + (["firewall_inactive"] if not (__iac__bootstrap__verify__network_results.ufw_active | default(false) | bool) else [])
-            + (["ip_forward_disabled"] if not (__iac__bootstrap__verify__k8s_results.ip_forwarding_enabled | default(false) | bool) else [])
           }}
 
     - name: Bootstrap | Verify (3/4) | Result Validation [3/4] | Identify warnings
@@ -322,8 +240,6 @@
         __iac__bootstrap__verify__warnings: >-
           {{
             []
-            + (["kernel_modules_missing"] if not (__iac__bootstrap__verify__k8s_results.kernel_modules_loaded | default(false) | bool) else [])
-            + (["sysctl_not_configured"] if not (__iac__bootstrap__verify__k8s_results.sysctl_configured | default(false) | bool) else [])
             + (["apparmor_disabled"] if not (__iac__bootstrap__verify__security_results.apparmor_enabled | default(false) | bool) else [])
             + (["dns_not_working"] if not (__iac__bootstrap__verify__network_results.dns_working | default(false) | bool) else [])
           }}
@@ -388,17 +304,9 @@
           - "    - DNS resolution working: {{ __iac__bootstrap__verify__network_results.dns_working | default('unknown') }}"
           - "    - DNSmasq running: {{ __iac__bootstrap__verify__network_results.dnsmasq_running | default('unknown') }}"
           - ""
-          - "  Kubernetes Readiness:"
-          - "    - Swap disabled: {{ __iac__bootstrap__verify__k8s_results.swap_disabled | default('unknown') }}"
-          - "    - Swap removed from fstab: {{ __iac__bootstrap__verify__k8s_results.swap_fstab_clean | default('unknown') }}"
-          - "    - Kernel modules loaded: {{ __iac__bootstrap__verify__k8s_results.kernel_modules_loaded | default('unknown') }}"
-          - "    - Sysctl configured: {{ __iac__bootstrap__verify__k8s_results.sysctl_configured | default('unknown') }}"
-          - "    - IP forwarding enabled: {{ __iac__bootstrap__verify__k8s_results.ip_forwarding_enabled | default('unknown') }}"
-          - ""
           - "  Services Status ({{ __iac__bootstrap__verify__services_running | default(0) }}/{{ __iac__bootstrap__verify__services_expected | default(0) }} running):"
-          - "{{ __iac__bootstrap__verify__service_status | default({}) | to_nice_yaml | indent(4, first=true) }}"
+          - "{% for service, status in (__iac__bootstrap__verify__service_status | default({})).items() %}    - {{ service }}: {{ status }}\n{% endfor %}"
           - ""
-          - "============================================================"
 
     - name: Bootstrap | Verify (4/4) | Completion Status [5/5] | Fail if critical errors found
       ansible.builtin.fail:

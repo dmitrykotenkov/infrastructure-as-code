@@ -37,7 +37,7 @@
     # Drop-in Directory Setup
     # -------------------------------------------------------------------------
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [1/6] | Ensure sshd_config.d exists
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [1/7] | Ensure sshd_config.d exists
       ansible.builtin.file:
         path: /etc/ssh/sshd_config.d
         state: directory
@@ -45,18 +45,41 @@
         group: root
         mode: "0755"
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [2/6] | Ensure sshd_config includes drop-ins
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [2/7] | Ensure sshd_config includes drop-ins
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         line: "Include /etc/ssh/sshd_config.d/*.conf"
         insertafter: BOF
         state: present
 
+    # -------------------------------------------------------------------------
+    # Disable conflicting settings in main sshd_config
+    # Ubuntu 24.04 sshd_config may have settings AFTER Include that override drop-ins
+    # -------------------------------------------------------------------------
+
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [3/7] | Comment out settings in main sshd_config that we manage via drop-in
+      ansible.builtin.replace:
+        path: /etc/ssh/sshd_config
+        regexp: "^({{ item }})\\s"
+        replace: '# \1 '
+        backup: false
+      loop:
+        - PermitRootLogin
+        - PasswordAuthentication
+        - PubkeyAuthentication
+        - PermitEmptyPasswords
+        - X11Forwarding
+        - MaxAuthTries
+        - KbdInteractiveAuthentication
+        - ChallengeResponseAuthentication
+      loop_control:
+        label: "{{ item }}"
+
     # -----------------------------------------------------------------------------
     # SSH Hardening Configuration
     # -----------------------------------------------------------------------------
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [3/6] | Write SSH hardening configuration
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [4/7] | Write SSH hardening configuration
       ansible.builtin.copy:
         dest: "{{ iac__bootstrap__ssh_settings__ssh_main_dropin_file_path }}"
         owner: root
@@ -155,7 +178,7 @@
     # Validate Configuration
     # -----------------------------------------------------------------------------
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [4/6] | Validate SSH configuration
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [5/7] | Validate SSH configuration
       ansible.builtin.command: sshd -t
       register: __iac__bootstrap__ssh_settings__sshd_test
       changed_when: false
@@ -164,13 +187,13 @@
     # Apply Configuration
     # -----------------------------------------------------------------------------
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [5/6] | Restart SSH service
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [6/7] | Restart SSH service
       ansible.builtin.service:
         name: "{{ iac__bootstrap__ssh_settings__service_name }}"
         state: restarted
       when: __iac__bootstrap__ssh_settings__config_changed.changed
 
-    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [6/6] | Ensure SSH service is enabled
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [7/7] | Ensure SSH service is enabled
       ansible.builtin.service:
         name: "{{ iac__bootstrap__ssh_settings__service_name }}"
         enabled: true

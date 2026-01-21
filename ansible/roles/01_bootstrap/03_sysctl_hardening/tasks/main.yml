@@ -106,11 +106,11 @@
     - name: Bootstrap | Sysctl Hardening (3/4) | Result Validation | Verify settings
       when: not (iac__bootstrap__sysctl_hardening__skip | bool)
       block:
-        - name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [1/5] | Verify IP forwarding enabled (K8s)
+        - name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [1/5] | Verify IP forwarding disabled
           ansible.builtin.command: sysctl -n net.ipv4.ip_forward
           register: __iac__bootstrap__sysctl_hardening__ip_forward
           changed_when: false
-          failed_when: __iac__bootstrap__sysctl_hardening__ip_forward.stdout != "1"
+          failed_when: __iac__bootstrap__sysctl_hardening__ip_forward.stdout != "0"
 
     - name: Bootstrap | Sysctl Hardening (3/4) | Result Validation [2/5] | Verify TCP SYN cookies enabled
       ansible.builtin.command: sysctl -n net.ipv4.tcp_syncookies

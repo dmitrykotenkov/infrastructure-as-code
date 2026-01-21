@@ -6,9 +6,9 @@ iac__bootstrap__sysctl_hardening__skip: false
 iac__bootstrap__sysctl_hardening__config_file: /etc/sysctl.d/99-ansible-security.conf
 
 iac__bootstrap__sysctl_hardening__network_params:
-  # IP Forwarding - REQUIRED for Kubernetes (non-K8s default: "0")
-  - { name: "net.ipv4.ip_forward", value: "1" }
-  - { name: "net.ipv6.conf.all.forwarding", value: "1" }
+  # IP Forwarding - value "1" is REQUIRED for Kubernetes (non-K8s default: "0")
+  - { name: "net.ipv4.ip_forward", value: "0" }
+  - { name: "net.ipv6.conf.all.forwarding", value: "0" }
 
   # ICMP Redirects (prevent MITM attacks)
   - { name: "net.ipv4.conf.all.accept_redirects", value: "0" }

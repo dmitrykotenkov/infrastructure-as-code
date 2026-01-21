@@ -20,7 +20,6 @@ iac__bootstrap__verify__fail_on_error: true
 iac__bootstrap__verify__check_system_configuration: true
 iac__bootstrap__verify__check_security_hardening: true
 iac__bootstrap__verify__check_network_configuration: true
-iac__bootstrap__verify__check_kubernetes_readiness: true
 iac__bootstrap__verify__check_service_statuses: true
 
 # -----------------------------------------------------------------------------
@@ -36,14 +35,3 @@ iac__bootstrap__verify__expected_services:
   - fail2ban
   - ufw
   - acct
-
-# Expected kernel modules for Kubernetes
-iac__bootstrap__verify__expected_kernel_modules:
-  - overlay
-  - br_netfilter
-
-# Expected sysctl values for Kubernetes networking
-iac__bootstrap__verify__expected_sysctl:
-  net.bridge.bridge-nf-call-iptables: "1"
-  net.bridge.bridge-nf-call-ip6tables: "1"
-  net.ipv4.ip_forward: "1"

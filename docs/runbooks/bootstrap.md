@@ -27,12 +27,12 @@ Comprehensive server configuration and hardening from clean state to production-
 ```bash
 # Linux
 cd ansible
-ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/01_initial_setup.yml \
+ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/initial_setup.yml \
   -i inventories/test_lab/dev/hosts.yml \
   --ask-vault-pass
 ```
 
 ```powershell
 # PowerShell via WSL
-wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/01_initial_setup.yml -i inventories/test_lab/dev/hosts.yml --ask-vault-pass'
+wsl -d Ubuntu -e bash -c 'cd /mnt/d/GitHub/dmkt/infrastructure-as-code/ansible && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/01_bootstrap/initial_setup.yml -i inventories/test_lab/dev/hosts.yml --ask-vault-pass'
 ```

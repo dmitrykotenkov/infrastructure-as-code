@@ -10,9 +10,9 @@ iac__bootstrap__ssh_settings__ssh_main_dropin_file_path: "{{ iac__common__ssh_ma
 
 iac__bootstrap__ssh_settings__password_auth: false
 # Permit root login: "no", "prohibit-password", "forced-commands-only", "yes"
-# "prohibit-password" - allows root SSH key login (useful for some automation)
-# "no" - completely disables root SSH login (more secure)
-iac__bootstrap__ssh_settings__permit_root_login: "prohibit-password"
+# "no" - completely disables root SSH login (recommended for hardened servers)
+# "prohibit-password" - allows root SSH key login (use if root access needed)
+iac__bootstrap__ssh_settings__permit_root_login: "no"
 iac__bootstrap__ssh_settings__pubkey_auth: true
 iac__bootstrap__ssh_settings__permit_empty_passwords: false
 iac__bootstrap__ssh_settings__max_auth_tries: 3

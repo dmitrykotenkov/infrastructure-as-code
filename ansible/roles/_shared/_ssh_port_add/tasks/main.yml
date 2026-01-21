@@ -43,48 +43,12 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Disable systemd socket activation (if active)
-# When ssh.socket is active, the Port directive in sshd_config is ignored.
-# We must disable socket activation to allow sshd_config to control ports.
+# SSH Port Configuration (BEFORE disabling socket activation)
+# We configure the port FIRST so that when ssh.service starts, it has a valid
+# port configuration available.
 # -----------------------------------------------------------------------------
 
-- name: Shared | SSH Port Add (2/4) | Main Tasks [1/6] | Disable ssh.socket if enabled
-  when: __iac__shared__ssh_port_add__socket_enabled.rc == 0
-  block:
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1a/6] | Stop ssh.socket
-      ansible.builtin.systemd:
-        name: ssh.socket
-        state: stopped
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1b/6] | Disable ssh.socket
-      ansible.builtin.systemd:
-        name: ssh.socket
-        enabled: false
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1c/6] | Reload systemd daemon
-      ansible.builtin.systemd:
-        daemon_reload: true
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1d/6] | Wait for socket to release port
-      ansible.builtin.pause:
-        seconds: 10
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1e/6] | Ensure ssh.service is enabled and started
-      ansible.builtin.systemd:
-        name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
-        enabled: true
-        state: started
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [1f/6] | Mask ssh.socket to prevent re-activation
-      ansible.builtin.systemd:
-        name: ssh.socket
-        masked: true
-
-# -----------------------------------------------------------------------------
-# SSH Port Configuration
-# -----------------------------------------------------------------------------
-
-- name: Shared | SSH Port Add (2/4) | Main Tasks [2/6] | Ensure sshd_config.d exists
+- name: Shared | SSH Port Add (2/4) | Main Tasks [1/6] | Ensure sshd_config.d exists
   ansible.builtin.file:
     path: "{{ iac__shared__ssh_port_add__dropin_file_path | dirname }}"
     state: directory
@@ -92,7 +56,7 @@
     group: root
     mode: "0755"
 
-- name: Shared | SSH Port Add (2/4) | Main Tasks [3/6] | Ensure drop-in file exists
+- name: Shared | SSH Port Add (2/4) | Main Tasks [2/6] | Ensure drop-in file exists
   ansible.builtin.copy:
     dest: "{{ iac__shared__ssh_port_add__dropin_file_path }}"
     owner: root
@@ -104,7 +68,7 @@
       # =============================================================================
     force: false
 
-- name: Shared | SSH Port Add (2/4) | Main Tasks [4/6] | Add port to configuration
+- name: Shared | SSH Port Add (2/4) | Main Tasks [3/6] | Add port to configuration
   ansible.builtin.lineinfile:
     path: "{{ iac__shared__ssh_port_add__dropin_file_path }}"
     line: "Port {{ iac__shared__ssh_port_add__port }}"
@@ -115,21 +79,61 @@
     mode: "0644"
   register: __iac__shared__ssh_port_add__config_changed
 
-- name: Shared | SSH Port Add (2/4) | Main Tasks [5/6] | Validate and restart SSH
+- name: Shared | SSH Port Add (2/4) | Main Tasks [4/6] | Validate SSH configuration before any service changes
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+# -----------------------------------------------------------------------------
+# Disable systemd socket activation (if active)
+# When ssh.socket is active, the Port directive in sshd_config is ignored.
+# We must disable socket activation to allow sshd_config to control ports.
+# Port is already configured above, so ssh.service can start properly.
+# -----------------------------------------------------------------------------
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [5/6] | Disable ssh.socket if enabled
+  when: __iac__shared__ssh_port_add__socket_enabled.rc == 0
+  block:
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5a/6] | Stop ssh.socket
+      ansible.builtin.systemd:
+        name: ssh.socket
+        state: stopped
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5b/6] | Disable ssh.socket
+      ansible.builtin.systemd:
+        name: ssh.socket
+        enabled: false
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5c/6] | Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5d/6] | Wait for socket to release port
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5e/6] | Ensure ssh.service is enabled and started
+      ansible.builtin.systemd:
+        name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
+        enabled: true
+        state: started
+
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [5f/6] | Mask ssh.socket to prevent re-activation
+      ansible.builtin.systemd:
+        name: ssh.socket
+        masked: true
+
+- name: Shared | SSH Port Add (2/4) | Main Tasks [6/6] | Restart SSH if config changed (socket was not enabled)
   when:
+    - __iac__shared__ssh_port_add__socket_enabled.rc != 0
     - __iac__shared__ssh_port_add__config_changed.changed
     - iac__shared__ssh_port_add__reload_service | bool
   block:
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [5a/6] | Validate SSH configuration
-      ansible.builtin.command: sshd -t
-      changed_when: false
-
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [5b/6] | Restart SSH service
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [6a/6] | Restart SSH service
       ansible.builtin.service:
         name: "{{ iac__shared__ssh_port_add__ssh_service_name }}"
         state: restarted
 
-    - name: Shared | SSH Port Add (2/4) | Main Tasks [5c/6] | Wait for SSH service to be ready
+    - name: Shared | SSH Port Add (2/4) | Main Tasks [6b/6] | Wait for SSH service to be ready
       ansible.builtin.pause:
         seconds: 10
 
