@@ -10,207 +10,217 @@
 # Section 0/4: Preconditions
 # =============================================================================
 
-- name: Bootstrap | Packages (0/4) | Preconditions [1/1] | Skip role if disabled
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__packages__skip | bool
+# Role skipping handled via 'when' conditions on all section blocks below
 
 # =============================================================================
 # Section 1/4: Validation
 # =============================================================================
 
-- name: Bootstrap | Packages (1/4) | Validation [1/2] | Assert APT package manager
-  ansible.builtin.assert:
-    that:
-      - ansible_pkg_mgr == "apt"
-    fail_msg: "This role only supports APT-based systems (Debian/Ubuntu)"
-    quiet: true
-  changed_when: false
+- name: Bootstrap | Packages (1/4) | Validation | Validate inputs
+  when: not (iac__bootstrap__packages__skip | bool)
+  block:
+    - name: Bootstrap | Packages (1/4) | Validation [1/2] | Assert APT package manager
+      ansible.builtin.assert:
+        that:
+          - ansible_pkg_mgr == "apt"
+        fail_msg: "This role only supports APT-based systems (Debian/Ubuntu)"
+        quiet: true
+      changed_when: false
 
-- name: Bootstrap | Packages (1/4) | Validation [2/2] | Assert base packages list is defined
-  ansible.builtin.assert:
-    that:
-      - iac__bootstrap__packages__base_packages is defined
-      - iac__bootstrap__packages__base_packages | length > 0
-    fail_msg: "iac__bootstrap__packages__base_packages must be defined and non-empty"
-    quiet: true
-  changed_when: false
+    - name: Bootstrap | Packages (1/4) | Validation [2/2] | Assert base packages list is defined
+      ansible.builtin.assert:
+        that:
+          - iac__bootstrap__packages__base_packages is defined
+          - iac__bootstrap__packages__base_packages | length > 0
+        fail_msg: "iac__bootstrap__packages__base_packages must be defined and non-empty"
+        quiet: true
+      changed_when: false
   
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# APT Cache Update
-# -----------------------------------------------------------------------------
+- name: Bootstrap | Packages (2/4) | Main Tasks | Configure packages
+  when: not (iac__bootstrap__packages__skip | bool)
+  block:
+    # -------------------------------------------------------------------------
+    # APT Cache Update
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [1/12] | Update APT cache
-  ansible.builtin.apt:
-    update_cache: true
-    lock_timeout: "{{ iac__bootstrap__packages__apt_update_lock_timeout }}"
-  retries: "{{ (iac__bootstrap__packages__apt_update_async_timeout | int / 30) | int }}"
-  delay: 30
-  register: __iac__bootstrap__packages__apt_update
-  until: __iac__bootstrap__packages__apt_update is succeeded
+    - name: Bootstrap | Packages (2/4) | Main Tasks [1/12] | Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+        lock_timeout: "{{ iac__bootstrap__packages__apt_update_lock_timeout }}"
+      retries: "{{ (iac__bootstrap__packages__apt_update_async_timeout | int / 30) | int }}"
+      delay: 30
+      register: __iac__bootstrap__packages__apt_update
+      until: __iac__bootstrap__packages__apt_update is succeeded
 
-# -----------------------------------------------------------------------------
-# System Upgrade (async for long-running operations)
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # System Upgrade (async for long-running operations)
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [2/12] | Start APT upgrade in background
-  ansible.builtin.apt:
-    upgrade: "{{ iac__bootstrap__packages__upgrade_type }}"
-    lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
-    dpkg_options: "force-confdef,force-confold"
-  environment:
-    DEBIAN_FRONTEND: noninteractive
-  async: "{{ iac__bootstrap__packages__apt_upgrade_async_timeout }}"
-  poll: 0
-  when: iac__bootstrap__packages__perform_upgrade | bool
-  register: __iac__bootstrap__packages__apt_upgrade_job
+    - name: Bootstrap | Packages (2/4) | Main Tasks [2/12] | Start APT upgrade in background
+      ansible.builtin.apt:
+        upgrade: "{{ iac__bootstrap__packages__upgrade_type }}"
+        lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
+        dpkg_options: "force-confdef,force-confold"
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      async: "{{ iac__bootstrap__packages__apt_upgrade_async_timeout }}"
+      poll: 0
+      when: iac__bootstrap__packages__perform_upgrade | bool
+      register: __iac__bootstrap__packages__apt_upgrade_job
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [3/12] | Wait for SSH connectivity during upgrade
-  ansible.builtin.wait_for_connection:
-    delay: 10
-    timeout: "{{ iac__bootstrap__packages__ssh_reconnect_timeout }}"
-  when:
-    - iac__bootstrap__packages__perform_upgrade | bool
-    - __iac__bootstrap__packages__apt_upgrade_job is defined
+    - name: Bootstrap | Packages (2/4) | Main Tasks [3/12] | Wait for SSH connectivity during upgrade
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: "{{ iac__bootstrap__packages__ssh_reconnect_timeout }}"
+      when:
+        - iac__bootstrap__packages__perform_upgrade | bool
+        - __iac__bootstrap__packages__apt_upgrade_job is defined
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [4/12] | Reset SSH connection after reconnect
-  ansible.builtin.meta: reset_connection
-  when:
-    - iac__bootstrap__packages__perform_upgrade | bool
-    - __iac__bootstrap__packages__apt_upgrade_job is defined
+    - name: Bootstrap | Packages (2/4) | Main Tasks [4/12] | Reset SSH connection after reconnect
+      ansible.builtin.meta: reset_connection
+      when:
+        - iac__bootstrap__packages__perform_upgrade | bool
+        - __iac__bootstrap__packages__apt_upgrade_job is defined
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [5/12] | Wait for APT upgrade to complete
-  ansible.builtin.async_status:
-    jid: "{{ __iac__bootstrap__packages__apt_upgrade_job.ansible_job_id }}"
-  when:
-    - iac__bootstrap__packages__perform_upgrade | bool
-    - __iac__bootstrap__packages__apt_upgrade_job.ansible_job_id is defined
-  retries: "{{ (iac__bootstrap__packages__apt_upgrade_async_timeout | int / 30) | int }}"
-  delay: 30
-  register: __iac__bootstrap__packages__apt_upgrade_status
-  until: __iac__bootstrap__packages__apt_upgrade_status.finished
+    - name: Bootstrap | Packages (2/4) | Main Tasks [5/12] | Wait for APT upgrade to complete
+      ansible.builtin.async_status:
+        jid: "{{ __iac__bootstrap__packages__apt_upgrade_job.ansible_job_id }}"
+      when:
+        - iac__bootstrap__packages__perform_upgrade | bool
+        - __iac__bootstrap__packages__apt_upgrade_job.ansible_job_id is defined
+      retries: "{{ (iac__bootstrap__packages__apt_upgrade_async_timeout | int / 30) | int }}"
+      delay: 30
+      register: __iac__bootstrap__packages__apt_upgrade_status
+      until: __iac__bootstrap__packages__apt_upgrade_status.finished
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [6/12] | Fail if APT upgrade failed
-  ansible.builtin.fail:
-    msg: |
-      APT upgrade failed (rc={{ __iac__bootstrap__packages__apt_upgrade_status.rc | default('N/A') }})
-      stdout: {{ __iac__bootstrap__packages__apt_upgrade_status.stdout | default('') }}
-      stderr: {{ __iac__bootstrap__packages__apt_upgrade_status.stderr | default('') }}
-  when:
-    - iac__bootstrap__packages__perform_upgrade | bool
-    - __iac__bootstrap__packages__apt_upgrade_status.rc is defined
-    - __iac__bootstrap__packages__apt_upgrade_status.rc | int != 0
+    - name: Bootstrap | Packages (2/4) | Main Tasks [6/12] | Fail if APT upgrade failed
+      ansible.builtin.fail:
+        msg: |
+          APT upgrade failed (rc={{ __iac__bootstrap__packages__apt_upgrade_status.rc | default('N/A') }})
+          stdout: {{ __iac__bootstrap__packages__apt_upgrade_status.stdout | default('') }}
+          stderr: {{ __iac__bootstrap__packages__apt_upgrade_status.stderr | default('') }}
+      when:
+        - iac__bootstrap__packages__perform_upgrade | bool
+        - __iac__bootstrap__packages__apt_upgrade_status.rc is defined
+        - __iac__bootstrap__packages__apt_upgrade_status.rc | int != 0
 
-# -----------------------------------------------------------------------------
-# Reboot if Required
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Reboot if Required
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [7/12] | Check if reboot is required
-  ansible.builtin.stat:
-    path: /var/run/reboot-required
-  register: __iac__bootstrap__packages__reboot_required
+    - name: Bootstrap | Packages (2/4) | Main Tasks [7/12] | Check if reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: __iac__bootstrap__packages__reboot_required
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [8/12] | Reboot if required and enabled
-  ansible.builtin.reboot:
-    reboot_timeout: "{{ iac__bootstrap__packages__reboot_timeout }}"
-    msg: "Rebooting after APT upgrade (kernel/library updates require restart)"
-  when:
-    - iac__bootstrap__packages__reboot_if_required | bool
-    - __iac__bootstrap__packages__reboot_required.stat.exists | default(false)
+    - name: Bootstrap | Packages (2/4) | Main Tasks [8/12] | Reboot if required and enabled
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ iac__bootstrap__packages__reboot_timeout }}"
+        msg: "Rebooting after APT upgrade (kernel/library updates require restart)"
+      when:
+        - iac__bootstrap__packages__reboot_if_required | bool
+        - __iac__bootstrap__packages__reboot_required.stat.exists | default(false)
 
-# -----------------------------------------------------------------------------
-# Install/Remove Packages
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Install/Remove Packages
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [9/12] | Install base packages
-  ansible.builtin.apt:
-    name: "{{ iac__bootstrap__packages__base_packages + iac__bootstrap__packages__extra_packages }}"
-    state: present
-    lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
+    - name: Bootstrap | Packages (2/4) | Main Tasks [9/12] | Install base packages
+      ansible.builtin.apt:
+        name: "{{ iac__bootstrap__packages__base_packages + iac__bootstrap__packages__extra_packages }}"
+        state: present
+        lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [10/12] | Remove unwanted packages
-  ansible.builtin.apt:
-    name: "{{ iac__bootstrap__packages__remove_packages }}"
-    state: absent
-    purge: true
-    autoremove: true
-    lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
-  when: iac__bootstrap__packages__remove_packages | length > 0
+    - name: Bootstrap | Packages (2/4) | Main Tasks [10/12] | Remove unwanted packages
+      ansible.builtin.apt:
+        name: "{{ iac__bootstrap__packages__remove_packages }}"
+        state: absent
+        purge: true
+        autoremove: true
+        lock_timeout: "{{ iac__bootstrap__packages__apt_upgrade_lock_timeout }}"
+      when: iac__bootstrap__packages__remove_packages | length > 0
 
-# -----------------------------------------------------------------------------
-# Configure Unattended Upgrades
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Configure Unattended Upgrades
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [11/12] | Configure automatic APT updates
-  ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/20auto-upgrades
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      // Managed by Ansible
-      APT::Periodic::Update-Package-Lists "1";
-      APT::Periodic::Unattended-Upgrade "1";
-      APT::Periodic::AutocleanInterval "7";
-  when: iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
+    - name: Bootstrap | Packages (2/4) | Main Tasks [11/12] | Configure automatic APT updates
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          // Managed by Ansible
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          APT::Periodic::AutocleanInterval "7";
+      when: iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
 
-- name: Bootstrap | Packages (2/4) | Main Tasks [12/12] | Configure unattended-upgrades behavior
-  ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/99ansible-unattended-upgrades
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      // Managed by Ansible
-      Unattended-Upgrade::Automatic-Reboot "{{ iac__bootstrap__packages__auto_unattended_reboot | bool | lower }}";
-      Unattended-Upgrade::Automatic-Reboot-Time "{{ iac__bootstrap__packages__auto_unattended_reboot_time }}";
-      Unattended-Upgrade::Remove-Unused-Dependencies "true";
-      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-  when: iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
+    - name: Bootstrap | Packages (2/4) | Main Tasks [12/12] | Configure unattended-upgrades behavior
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99ansible-unattended-upgrades
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          // Managed by Ansible
+          Unattended-Upgrade::Automatic-Reboot "{{ iac__bootstrap__packages__auto_unattended_reboot | bool | lower }}";
+          Unattended-Upgrade::Automatic-Reboot-Time "{{ iac__bootstrap__packages__auto_unattended_reboot_time }}";
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+          Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      when: iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
 
 # =============================================================================
 # Section 3/4: Result Validation
 # =============================================================================
 
-- name: Bootstrap | Packages (3/4) | Result Validation [1/3] | Verify base packages installed
-  ansible.builtin.command: dpkg -s {{ item }}
-  loop: "{{ iac__bootstrap__packages__base_packages[:5] }}"
-  changed_when: false
-  failed_when: false
-  register: __iac__bootstrap__packages__verify_installed
+- name: Bootstrap | Packages (3/4) | Result Validation | Verify configuration
+  when: not (iac__bootstrap__packages__skip | bool)
+  block:
+    - name: Bootstrap | Packages (3/4) | Result Validation [1/3] | Verify base packages installed
+      ansible.builtin.command: dpkg -s {{ item }}
+      loop: "{{ iac__bootstrap__packages__base_packages[:5] }}"
+      changed_when: false
+      failed_when: false
+      register: __iac__bootstrap__packages__verify_installed
 
-- name: Bootstrap | Packages (3/4) | Result Validation [2/3] | Assert critical packages are installed
-  ansible.builtin.assert:
-    that:
-      - item.rc == 0
-    fail_msg: "Package {{ item.item }} is not installed"
-    quiet: true
-  loop: "{{ __iac__bootstrap__packages__verify_installed.results }}"
-  loop_control:
-    label: "{{ item.item }}"
+    - name: Bootstrap | Packages (3/4) | Result Validation [2/3] | Assert critical packages are installed
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+        fail_msg: "Package {{ item.item }} is not installed"
+        quiet: true
+      loop: "{{ __iac__bootstrap__packages__verify_installed.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
-- name: Bootstrap | Packages (3/4) | Result Validation [3/3] | Verify unattended-upgrades service
-  ansible.builtin.systemd:
-    name: unattended-upgrades.service
-    enabled: true
-    state: started
-  when:
-    - ansible_service_mgr == "systemd"
-    - iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
-  failed_when: false
+    - name: Bootstrap | Packages (3/4) | Result Validation [3/3] | Verify unattended-upgrades service
+      ansible.builtin.systemd:
+        name: unattended-upgrades.service
+        enabled: true
+        state: started
+      when:
+        - ansible_service_mgr == "systemd"
+        - iac__bootstrap__packages__configure_auto_unattended_upgrades | bool
+      failed_when: false
 
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
 
-- name: Bootstrap | Packages (4/4) | Completion Status [1/1] | Display configuration summary
-  ansible.builtin.debug:
-    msg:
-      - "  Packages configuration completed successfully"
-      - "  Base packages installed: {{ iac__bootstrap__packages__base_packages | length }}"
-      - "  Extra packages installed: {{ iac__bootstrap__packages__extra_packages | length }}"
-      - "  Unattended upgrades: {{ iac__bootstrap__packages__configure_auto_unattended_upgrades | bool }}"
-      - "  Reboot was required: {{ __iac__bootstrap__packages__reboot_required.stat.exists | default(false) }}"
+- name: Bootstrap | Packages (4/4) | Completion Status | Display summary
+  when: not (iac__bootstrap__packages__skip | bool)
+  block:
+    - name: Bootstrap | Packages (4/4) | Completion Status [1/1] | Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "  Packages configuration completed successfully"
+          - "  Base packages installed: {{ iac__bootstrap__packages__base_packages | length }}"
+          - "  Extra packages installed: {{ iac__bootstrap__packages__extra_packages | length }}"
+          - "  Unattended upgrades: {{ iac__bootstrap__packages__configure_auto_unattended_upgrades | bool }}"
+          - "  Reboot was required: {{ __iac__bootstrap__packages__reboot_required.stat.exists | default(false) }}"

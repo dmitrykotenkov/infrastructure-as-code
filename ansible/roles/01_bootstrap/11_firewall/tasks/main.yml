@@ -10,167 +10,183 @@
 # Section 0/4: Preconditions
 # =============================================================================
 
-- name: Bootstrap | Firewall (0/4) | Preconditions [1/3] | Skip role if disabled
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__firewall__skip | bool
-
-- name: Bootstrap | Firewall (0/4) | Preconditions [2/3] | Reset UFW if requested
-  community.general.ufw:
-    state: reset
-  when: iac__bootstrap__firewall__force_reset | bool
-  failed_when: false
-
-- name: Bootstrap | Firewall (0/4) | Preconditions [3/3] | End host after reset
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__firewall__force_reset | bool
+- name: Bootstrap | Firewall (0/4) | Preconditions | Handle force reset
+  when:
+    - not (iac__bootstrap__firewall__skip | bool)
+    - iac__bootstrap__firewall__force_reset | bool
+  block:
+    - name: Bootstrap | Firewall (0/4) | Preconditions [1/1] | Reset UFW if requested
+      community.general.ufw:
+        state: reset
+      failed_when: false
 
 # =============================================================================
 # Section 1/4: Validation
 # =============================================================================
 
-- name: Bootstrap | Firewall (1/4) | Validation [1/3] | Assert SSH port is valid
-  ansible.builtin.assert:
-    that:
-      - iac__bootstrap__firewall__ssh_port is defined
-      - (iac__bootstrap__firewall__ssh_port | int) > 0
-      - (iac__bootstrap__firewall__ssh_port | int) < 65536
-    fail_msg: "SSH port must be between 1 and 65535"
-    quiet: true
-  changed_when : false
+- name: Bootstrap | Firewall (1/4) | Validation | Validate inputs
+  when:
+    - not (iac__bootstrap__firewall__skip | bool)
+    - not (iac__bootstrap__firewall__force_reset | bool)
+  block:
+    - name: Bootstrap | Firewall (1/4) | Validation [1/3] | Assert SSH port is valid
+      ansible.builtin.assert:
+        that:
+          - iac__bootstrap__firewall__ssh_port is defined
+          - (iac__bootstrap__firewall__ssh_port | int) > 0
+          - (iac__bootstrap__firewall__ssh_port | int) < 65536
+        fail_msg: "SSH port must be between 1 and 65535"
+        quiet: true
+      changed_when : false
 
-- name: Bootstrap | Firewall (1/4) | Validation [2/3] | Assert firewall port matches current connection
-  ansible.builtin.assert:
-    that:
-      - (iac__bootstrap__firewall__ssh_port | int) == (ansible_port | int)
-    fail_msg: >-
-      Firewall SSH port ({{ iac__bootstrap__firewall__ssh_port }}) must match 
-      current connection port ({{ ansible_port }}) when iac__bootstrap__firewall__protect_current_ssh_port is enabled
-    quiet: true
-  changed_when: false
-  when: iac__bootstrap__firewall__protect_current_ssh_port | bool
+    - name: Bootstrap | Firewall (1/4) | Validation [2/3] | Assert firewall port matches current connection
+      ansible.builtin.assert:
+        that:
+          - (iac__bootstrap__firewall__ssh_port | int) == (ansible_port | int)
+        fail_msg: >-
+          Firewall SSH port ({{ iac__bootstrap__firewall__ssh_port }}) must match 
+          current connection port ({{ ansible_port }}) when iac__bootstrap__firewall__protect_current_ssh_port is enabled
+        quiet: true
+      changed_when: false
+      when: iac__bootstrap__firewall__protect_current_ssh_port | bool
 
-- name: Bootstrap | Firewall (1/4) | Validation [3/3] | Assert policies are valid
-  ansible.builtin.assert:
-    that:
-      - iac__bootstrap__firewall__default_incoming in ['allow', 'deny', 'reject']
-      - iac__bootstrap__firewall__default_outgoing in ['allow', 'deny', 'reject']
-    fail_msg: "UFW policies must be 'allow', 'deny', or 'reject'"
-    quiet: true
-  changed_when : false
+    - name: Bootstrap | Firewall (1/4) | Validation [3/3] | Assert policies are valid
+      ansible.builtin.assert:
+        that:
+          - iac__bootstrap__firewall__default_incoming in ['allow', 'deny', 'reject']
+          - iac__bootstrap__firewall__default_outgoing in ['allow', 'deny', 'reject']
+        fail_msg: "UFW policies must be 'allow', 'deny', or 'reject'"
+        quiet: true
+      changed_when : false
 
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Package Installation
-# -----------------------------------------------------------------------------
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [1/9] | Ensure UFW is installed
-  ansible.builtin.package:
-    name: ufw
-    state: present
-
-# -----------------------------------------------------------------------------
-# Allow Rules (BEFORE enabling UFW)
-# -----------------------------------------------------------------------------
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [2/9] | Allow SSH on configured port
-  community.general.ufw:
-    rule: allow
-    port: "{{ iac__bootstrap__firewall__ssh_port | string }}"
-    proto: tcp
-    comment: "SSH (Ansible managed)"
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [3/9] | Allow HTTP traffic
-  community.general.ufw:
-    rule: allow
-    port: "80"
-    proto: tcp
-    comment: "HTTP (Ansible managed)"
-  when: iac__bootstrap__firewall__allow_http | bool
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [4/9] | Allow HTTPS traffic
-  community.general.ufw:
-    rule: allow
-    port: "443"
-    proto: tcp
-    comment: "HTTPS (Ansible managed)"
-  when: iac__bootstrap__firewall__allow_https | bool
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [5/9] | Apply additional rules
-  community.general.ufw:
-    rule: allow
-    port: "{{ item.port | string }}"
-    proto: "{{ item.proto | default('tcp') }}"
-    comment: "{{ item.comment | default('Ansible managed') }}"
-  loop: "{{ iac__bootstrap__firewall__additional_rules }}"
-  when: iac__bootstrap__firewall__additional_rules | length > 0
-
-# -----------------------------------------------------------------------------
-# Default Policies
-# -----------------------------------------------------------------------------
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [6/9] | Set default incoming policy
-  community.general.ufw:
-    direction: incoming
-    policy: "{{ iac__bootstrap__firewall__default_incoming }}"
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [7/9] | Set default outgoing policy
-  community.general.ufw:
-    direction: outgoing
-    policy: "{{ iac__bootstrap__firewall__default_outgoing }}"
-
-# -----------------------------------------------------------------------------
-# Enable Firewall
-# -----------------------------------------------------------------------------
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [8/9] | Enable UFW firewall
-  community.general.ufw:
-    state: enabled
-
-# -----------------------------------------------------------------------------
-# Verify Connectivity
-# -----------------------------------------------------------------------------
-
-- name: Bootstrap | Firewall (2/4) | Main Tasks [9/9] | Reset connection and verify
+- name: Bootstrap | Firewall (2/4) | Main Tasks | Configure firewall
+  when:
+    - not (iac__bootstrap__firewall__skip | bool)
+    - not (iac__bootstrap__firewall__force_reset | bool)
   block:
-    - name: Bootstrap | Firewall (2/4) | Main Tasks [9a/9] | Reset SSH connection
-      ansible.builtin.meta: reset_connection
+    # -------------------------------------------------------------------------
+    # Package Installation
+    # -------------------------------------------------------------------------
 
-    - name: Bootstrap | Firewall (2/4) | Main Tasks [9b/9] | Verify reconnection
-      ansible.builtin.wait_for_connection:
-        delay: 3
-        timeout: "{{ iac__bootstrap__firewall__verify_timeout }}"
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [1/9] | Ensure UFW is installed
+      ansible.builtin.package:
+        name: ufw
+        state: present
+
+    # -------------------------------------------------------------------------
+    # Allow Rules (BEFORE enabling UFW)
+    # -------------------------------------------------------------------------
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [2/9] | Allow SSH on configured port
+      community.general.ufw:
+        rule: allow
+        port: "{{ iac__bootstrap__firewall__ssh_port | string }}"
+        proto: tcp
+        comment: "SSH (Ansible managed)"
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [3/9] | Allow HTTP traffic
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+        comment: "HTTP (Ansible managed)"
+      when: iac__bootstrap__firewall__allow_http | bool
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [4/9] | Allow HTTPS traffic
+      community.general.ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+        comment: "HTTPS (Ansible managed)"
+      when: iac__bootstrap__firewall__allow_https | bool
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [5/9] | Apply additional rules
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port | string }}"
+        proto: "{{ item.proto | default('tcp') }}"
+        comment: "{{ item.comment | default('Ansible managed') }}"
+      loop: "{{ iac__bootstrap__firewall__additional_rules }}"
+      when: iac__bootstrap__firewall__additional_rules | length > 0
+
+    # -----------------------------------------------------------------------------
+    # Default Policies
+    # -----------------------------------------------------------------------------
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [6/9] | Set default incoming policy
+      community.general.ufw:
+        direction: incoming
+        policy: "{{ iac__bootstrap__firewall__default_incoming }}"
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [7/9] | Set default outgoing policy
+      community.general.ufw:
+        direction: outgoing
+        policy: "{{ iac__bootstrap__firewall__default_outgoing }}"
+
+    # -----------------------------------------------------------------------------
+    # Enable Firewall
+    # -----------------------------------------------------------------------------
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [8/9] | Enable UFW firewall
+      community.general.ufw:
+        state: enabled
+
+    # -----------------------------------------------------------------------------
+    # Verify Connectivity
+    # -----------------------------------------------------------------------------
+
+    - name: Bootstrap | Firewall (2/4) | Main Tasks [9/9] | Reset connection and verify
+      block:
+        - name: Bootstrap | Firewall (2/4) | Main Tasks [9a/9] | Reset SSH connection
+          ansible.builtin.meta: reset_connection
+
+        - name: Bootstrap | Firewall (2/4) | Main Tasks [9b/9] | Verify reconnection
+          ansible.builtin.wait_for_connection:
+            delay: 3
+            timeout: "{{ iac__bootstrap__firewall__verify_timeout }}"
 
 # =============================================================================
 # Section 3/4: Result Validation
 # =============================================================================
 
-- name: Bootstrap | Firewall (3/4) | Result Validation [1/2] | Check UFW status
-  ansible.builtin.command: ufw status
-  register: __iac__bootstrap__firewall__status
-  changed_when: false
+- name: Bootstrap | Firewall (3/4) | Result Validation | Verify configuration
+  when:
+    - not (iac__bootstrap__firewall__skip | bool)
+    - not (iac__bootstrap__firewall__force_reset | bool)
+  block:
+    - name: Bootstrap | Firewall (3/4) | Result Validation [1/2] | Check UFW status
+      ansible.builtin.command: ufw status
+      register: __iac__bootstrap__firewall__status
+      changed_when: false
 
-- name: Bootstrap | Firewall (3/4) | Result Validation [2/2] | Assert UFW is active
-  ansible.builtin.assert:
-    that:
-      - "'Status: active' in __iac__bootstrap__firewall__status.stdout"
-    fail_msg: "UFW is not active after configuration"
-    quiet: true
+    - name: Bootstrap | Firewall (3/4) | Result Validation [2/2] | Assert UFW is active
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in __iac__bootstrap__firewall__status.stdout"
+        fail_msg: "UFW is not active after configuration"
+        quiet: true
 
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
 
-- name: Bootstrap | Firewall (4/4) | Completion Status [1/1] | Display configuration summary
-  ansible.builtin.debug:
-    msg:
-      - "  Firewall (UFW) configuration completed"
-      - "  Status: Active"
-      - "  SSH port allowed: {{ iac__bootstrap__firewall__ssh_port }}"
-      - "  HTTP allowed: {{ iac__bootstrap__firewall__allow_http | bool | ternary('yes', 'no') }}"
-      - "  HTTPS allowed: {{ iac__bootstrap__firewall__allow_https | bool | ternary('yes', 'no') }}"
-      - "  Default incoming: {{ iac__bootstrap__firewall__default_incoming }}"
-      - "  Default outgoing: {{ iac__bootstrap__firewall__default_outgoing }}"
-      - "  Additional rules: {{ iac__bootstrap__firewall__additional_rules | length }}"
+- name: Bootstrap | Firewall (4/4) | Completion Status | Display summary
+  when:
+    - not (iac__bootstrap__firewall__skip | bool)
+    - not (iac__bootstrap__firewall__force_reset | bool)
+  block:
+    - name: Bootstrap | Firewall (4/4) | Completion Status [1/1] | Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "  Firewall (UFW) configuration completed"
+          - "  Status: Active"
+          - "  SSH port allowed: {{ iac__bootstrap__firewall__ssh_port }}"
+          - "  HTTP allowed: {{ iac__bootstrap__firewall__allow_http | bool | ternary('yes', 'no') }}"
+          - "  HTTPS allowed: {{ iac__bootstrap__firewall__allow_https | bool | ternary('yes', 'no') }}"
+          - "  Default incoming: {{ iac__bootstrap__firewall__default_incoming }}"
+          - "  Default outgoing: {{ iac__bootstrap__firewall__default_outgoing }}"
+          - "  Additional rules: {{ iac__bootstrap__firewall__additional_rules | length }}"

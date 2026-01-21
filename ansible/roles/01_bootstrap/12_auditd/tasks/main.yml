@@ -7,148 +7,170 @@
 # =============================================================================
 
 # =============================================================================
-# Section 0/4: Preconditions
+# Section 0/4: Preconditions - Handle Removal
 # =============================================================================
 
-- name: Bootstrap | Auditd (0/4) | Preconditions [1/2] | Skip role if disabled
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__auditd__skip | bool
-
-- name: Bootstrap | Auditd (0/4) | Preconditions [2/2] | Handle removal
-  when: iac__bootstrap__auditd__remove | bool
+- name: Bootstrap | Auditd (0/4) | Preconditions | Handle removal
+  when:
+    - not (iac__bootstrap__auditd__skip | bool)
+    - iac__bootstrap__auditd__remove | bool
   block:
-    - name: Bootstrap | Auditd (0/4) | Preconditions [2a/2] | Stop auditd service
+    - name: Bootstrap | Auditd (0/4) | Preconditions [1/3] | Stop auditd service
       ansible.builtin.service:
         name: auditd
         state: stopped
         enabled: false
       failed_when: false
 
-    - name: Bootstrap | Auditd (0/4) | Preconditions [2b/2] | Remove audit rules
+    - name: Bootstrap | Auditd (0/4) | Preconditions [2/3] | Remove audit rules
       ansible.builtin.file:
         path: /etc/audit/rules.d/99-ansible.rules
         state: absent
 
-    - name: Bootstrap | Auditd (0/4) | Preconditions [2c/2] | End host after removal
-      ansible.builtin.meta: end_host
+    - name: Bootstrap | Auditd (0/4) | Preconditions [3/3] | Display removal status
+      ansible.builtin.debug:
+        msg:
+          - "  Auditd removal completed"
+          - "  Service stopped and disabled"
+          - "  Custom rules removed"
 
 # =============================================================================
 # Section 1/4: Validation
 # =============================================================================
 
-- name: Bootstrap | Auditd (1/4) | Validation [1/1] | Assert log settings are valid
-  ansible.builtin.assert:
-    that:
-      - (iac__bootstrap__auditd__max_log_file | int) > 0
-      - (iac__bootstrap__auditd__num_logs | int) > 0
-      - iac__bootstrap__auditd__max_log_file_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'ROTATE', 'KEEP_LOGS']
-      - iac__bootstrap__auditd__space_left_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'SINGLE', 'HALT']
-      - iac__bootstrap__auditd__disk_full_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'SINGLE', 'HALT']
-    fail_msg: "Invalid auditd configuration values"
-    quiet: true
-  changed_when: false
+- name: Bootstrap | Auditd (1/4) | Validation | Validate inputs
+  when:
+    - not (iac__bootstrap__auditd__skip | bool)
+    - not (iac__bootstrap__auditd__remove | bool)
+  block:
+    - name: Bootstrap | Auditd (1/4) | Validation [1/1] | Assert log settings are valid
+      ansible.builtin.assert:
+        that:
+          - (iac__bootstrap__auditd__max_log_file | int) > 0
+          - (iac__bootstrap__auditd__num_logs | int) > 0
+          - iac__bootstrap__auditd__max_log_file_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'ROTATE', 'KEEP_LOGS']
+          - iac__bootstrap__auditd__space_left_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'SINGLE', 'HALT']
+          - iac__bootstrap__auditd__disk_full_action in ['IGNORE', 'SYSLOG', 'SUSPEND', 'SINGLE', 'HALT']
+        fail_msg: "Invalid auditd configuration values"
+        quiet: true
+      changed_when: false
 
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Package Installation
-# -----------------------------------------------------------------------------
+- name: Bootstrap | Auditd (2/4) | Main Tasks | Configure auditd
+  when:
+    - not (iac__bootstrap__auditd__skip | bool)
+    - not (iac__bootstrap__auditd__remove | bool)
+  block:
+    # -------------------------------------------------------------------------
+    # Package Installation
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Auditd (2/4) | Main Tasks [1/5] | Install auditd packages
-  ansible.builtin.package:
-    name:
-      - auditd
-      - audispd-plugins
-    state: present
+    - name: Bootstrap | Auditd (2/4) | Main Tasks [1/5] | Install auditd packages
+      ansible.builtin.package:
+        name:
+          - auditd
+          - audispd-plugins
+        state: present
 
-# -----------------------------------------------------------------------------
-# Configuration
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Configuration
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Auditd (2/4) | Main Tasks [2/5] | Configure auditd.conf
-  ansible.builtin.template:
-    src: auditd.conf.j2
-    dest: /etc/audit/auditd.conf
-    owner: root
-    group: root
-    mode: "0640"
-    backup: true
-  notify: restart auditd
+    - name: Bootstrap | Auditd (2/4) | Main Tasks [2/5] | Configure auditd.conf
+      ansible.builtin.template:
+        src: auditd.conf.j2
+        dest: /etc/audit/auditd.conf
+        owner: root
+        group: root
+        mode: "0640"
+        backup: true
+      notify: restart auditd
 
-# -----------------------------------------------------------------------------
-# Audit Rules
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Audit Rules
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Auditd (2/4) | Main Tasks [3/5] | Deploy audit rules
-  ansible.builtin.template:
-    src: audit.rules.j2
-    dest: /etc/audit/rules.d/99-ansible.rules
-    owner: root
-    group: root
-    mode: "0640"
-    backup: true
-  notify: reload audit rules
+    - name: Bootstrap | Auditd (2/4) | Main Tasks [3/5] | Deploy audit rules
+      ansible.builtin.template:
+        src: audit.rules.j2
+        dest: /etc/audit/rules.d/99-ansible.rules
+        owner: root
+        group: root
+        mode: "0640"
+        backup: true
+      notify: reload audit rules
 
-# -----------------------------------------------------------------------------
-# Privileged Commands Discovery
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Privileged Commands Discovery
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Auditd (2/4) | Main Tasks [4/5] | Find privileged commands
-  ansible.builtin.shell: |
-    set -o pipefail
-    find /usr/bin /usr/sbin /bin /sbin -xdev \( -perm -4000 -o -perm -2000 \) -type f 2>/dev/null | sort
-  args:
-    executable: /bin/bash
-  register: __iac__bootstrap__auditd__privileged_commands
-  changed_when: false
-  when: iac__bootstrap__auditd__audit_privileged_commands | bool
+    - name: Bootstrap | Auditd (2/4) | Main Tasks [4/5] | Find privileged commands
+      ansible.builtin.shell: |
+        set -o pipefail
+        find /usr/bin /usr/sbin /bin /sbin -xdev \( -perm -4000 -o -perm -2000 \) -type f 2>/dev/null | sort
+      args:
+        executable: /bin/bash
+      register: __iac__bootstrap__auditd__privileged_commands
+      changed_when: false
+      when: iac__bootstrap__auditd__audit_privileged_commands | bool
 
-# -----------------------------------------------------------------------------
-# Service Management
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Service Management
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Auditd (2/4) | Main Tasks [5/5] | Enable and start auditd
-  ansible.builtin.service:
-    name: auditd
-    state: started
-    enabled: "{{ iac__bootstrap__auditd__service_enabled }}"
+    - name: Bootstrap | Auditd (2/4) | Main Tasks [5/5] | Enable and start auditd
+      ansible.builtin.service:
+        name: auditd
+        state: started
+        enabled: "{{ iac__bootstrap__auditd__service_enabled }}"
 
 # =============================================================================
 # Section 3/4: Result Validation
 # =============================================================================
 
-- name: Bootstrap | Auditd (3/4) | Result Validation [1/3] | Verify auditd is running
-  ansible.builtin.command: systemctl is-active auditd
-  register: __iac__bootstrap__auditd__service_status
-  changed_when: false
-  failed_when: false
+- name: Bootstrap | Auditd (3/4) | Result Validation | Verify configuration
+  when:
+    - not (iac__bootstrap__auditd__skip | bool)
+    - not (iac__bootstrap__auditd__remove | bool)
+  block:
+    - name: Bootstrap | Auditd (3/4) | Result Validation [1/3] | Verify auditd is running
+      ansible.builtin.command: systemctl is-active auditd
+      register: __iac__bootstrap__auditd__service_status
+      changed_when: false
+      failed_when: false
 
-- name: Bootstrap | Auditd (3/4) | Result Validation [2/3] | Check audit rules loaded
-  ansible.builtin.command: auditctl -l
-  register: __iac__bootstrap__auditd__rules_loaded
-  changed_when: false
+    - name: Bootstrap | Auditd (3/4) | Result Validation [2/3] | Check audit rules loaded
+      ansible.builtin.command: auditctl -l
+      register: __iac__bootstrap__auditd__rules_loaded
+      changed_when: false
 
-- name: Bootstrap | Auditd (3/4) | Result Validation [3/3] | Assert auditd is operational
-  ansible.builtin.assert:
-    that:
-      - __iac__bootstrap__auditd__service_status.stdout == "active"
-      - __iac__bootstrap__auditd__rules_loaded.rc == 0
-    fail_msg: "Auditd is not running or rules failed to load"
-    quiet: true
+    - name: Bootstrap | Auditd (3/4) | Result Validation [3/3] | Assert auditd is operational
+      ansible.builtin.assert:
+        that:
+          - __iac__bootstrap__auditd__service_status.stdout == "active"
+          - __iac__bootstrap__auditd__rules_loaded.rc == 0
+        fail_msg: "Auditd is not running or rules failed to load"
+        quiet: true
 
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
 
-- name: Bootstrap | Auditd (4/4) | Completion Status [1/1] | Display configuration summary
-  ansible.builtin.debug:
-    msg:
-      - "  Auditd (Audit Logging) configuration completed"
-      - "  Service status: {{ __iac__bootstrap__auditd__service_status.stdout }}"
-      - "  Log file size: {{ iac__bootstrap__auditd__max_log_file }} MB"
-      - "  Log rotation: {{ iac__bootstrap__auditd__num_logs }} files"
-      - "  CIS rules: {{ iac__bootstrap__auditd__cis_rules | bool | ternary('enabled', 'disabled') }}"
-      - "  STIG rules: {{ iac__bootstrap__auditd__stig_rules | bool | ternary('enabled', 'disabled') }}"
-      - "  Custom rules: {{ iac__bootstrap__auditd__custom_rules | length }}"
+- name: Bootstrap | Auditd (4/4) | Completion Status | Display summary
+  when:
+    - not (iac__bootstrap__auditd__skip | bool)
+    - not (iac__bootstrap__auditd__remove | bool)
+  block:
+    - name: Bootstrap | Auditd (4/4) | Completion Status [1/1] | Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "  Auditd (Audit Logging) configuration completed"
+          - "  Service status: {{ __iac__bootstrap__auditd__service_status.stdout }}"
+          - "  Log file size: {{ iac__bootstrap__auditd__max_log_file }} MB"
+          - "  Log rotation: {{ iac__bootstrap__auditd__num_logs }} files"
+          - "  CIS rules: {{ iac__bootstrap__auditd__cis_rules | bool | ternary('enabled', 'disabled') }}"
+          - "  STIG rules: {{ iac__bootstrap__auditd__stig_rules | bool | ternary('enabled', 'disabled') }}"
+          - "  Custom rules: {{ iac__bootstrap__auditd__custom_rules | length }}"

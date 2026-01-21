@@ -7,252 +7,253 @@
 # =============================================================================
 
 # =============================================================================
-# Section 0/4: Preconditions
-# =============================================================================
-
-- name: Bootstrap | SSH Settings (0/4) | Preconditions [1/1] | Skip role if disabled
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__ssh_settings__skip | bool
-
-# =============================================================================
 # Section 1/4: Validation
 # =============================================================================
 
-- name: Bootstrap | SSH Settings (1/4) | Validation [1/2] | Check SSH service exists
-  ansible.builtin.command: "systemctl cat {{ iac__bootstrap__ssh_settings__service_name }}"
-  register: __iac__bootstrap__ssh_settings__service_check
-  changed_when: false
-  failed_when: false
+- name: Bootstrap | SSH Settings (1/4) | Validation | Validate inputs
+  when: not (iac__bootstrap__ssh_settings__skip | bool)
+  block:
+    - name: Bootstrap | SSH Settings (1/4) | Validation [1/2] | Check SSH service exists
+      ansible.builtin.command: "systemctl cat {{ iac__bootstrap__ssh_settings__service_name }}"
+      register: __iac__bootstrap__ssh_settings__service_check
+      changed_when: false
+      failed_when: false
 
-- name: Bootstrap | SSH Settings (1/4) | Validation [2/2] | Assert SSH is installed
-  ansible.builtin.assert:
-    that:
-      - __iac__bootstrap__ssh_settings__service_check.rc == 0
-    fail_msg: "SSH service '{{ iac__bootstrap__ssh_settings__service_name }}' not found"
-    quiet: true
+    - name: Bootstrap | SSH Settings (1/4) | Validation [2/2] | Assert SSH is installed
+      ansible.builtin.assert:
+        that:
+          - __iac__bootstrap__ssh_settings__service_check.rc == 0
+        fail_msg: "SSH service '{{ iac__bootstrap__ssh_settings__service_name }}' not found"
+        quiet: true
 
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Drop-in Directory Setup
-# -----------------------------------------------------------------------------
+- name: Bootstrap | SSH Settings (2/4) | Main Tasks | Configure SSH
+  when: not (iac__bootstrap__ssh_settings__skip | bool)
+  block:
+    # -------------------------------------------------------------------------
+    # Drop-in Directory Setup
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [1/6] | Ensure sshd_config.d exists
-  ansible.builtin.file:
-    path: /etc/ssh/sshd_config.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [1/6] | Ensure sshd_config.d exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [2/6] | Ensure sshd_config includes drop-ins
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    line: "Include /etc/ssh/sshd_config.d/*.conf"
-    insertafter: BOF
-    state: present
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [2/6] | Ensure sshd_config includes drop-ins
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        line: "Include /etc/ssh/sshd_config.d/*.conf"
+        insertafter: BOF
+        state: present
 
-# -----------------------------------------------------------------------------
-# SSH Hardening Configuration
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # SSH Hardening Configuration
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [3/6] | Write SSH hardening configuration
-  ansible.builtin.copy:
-    dest: "{{ iac__bootstrap__ssh_settings__ssh_main_dropin_file_path }}"
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # =============================================================================
-      # Managed by Ansible - SSH Hardening
-      # =============================================================================
-      # NOTE: Port configuration is managed separately by 11_ssh_port role
-      
-      # =============================================================================
-      # Authentication
-      # =============================================================================
-      PubkeyAuthentication {{ iac__bootstrap__ssh_settings__pubkey_auth | ternary('yes', 'no') }}
-      PermitRootLogin {{ iac__bootstrap__ssh_settings__permit_root_login }}
-      PasswordAuthentication {{ iac__bootstrap__ssh_settings__password_auth | ternary('yes', 'no') }}
-      PermitEmptyPasswords {{ iac__bootstrap__ssh_settings__permit_empty_passwords | ternary('yes', 'no') }}
-      {% if not iac__bootstrap__ssh_settings__password_auth %}
-      KbdInteractiveAuthentication no
-      ChallengeResponseAuthentication no
-      AuthenticationMethods publickey
-      {% endif %}
-      
-      # Authentication limits
-      MaxAuthTries {{ iac__bootstrap__ssh_settings__max_auth_tries }}
-      LoginGraceTime {{ iac__bootstrap__ssh_settings__login_grace_time }}
-      
-      # =============================================================================
-      # Session Security
-      # =============================================================================
-      ClientAliveInterval {{ iac__bootstrap__ssh_settings__client_alive_interval }}
-      ClientAliveCountMax {{ iac__bootstrap__ssh_settings__client_alive_count_max }}
-      MaxSessions {{ iac__bootstrap__ssh_settings__max_sessions }}
-      MaxStartups {{ iac__bootstrap__ssh_settings__max_startups }}
-      
-      # =============================================================================
-      # Feature Restrictions
-      # =============================================================================
-      X11Forwarding {{ iac__bootstrap__ssh_settings__x11_forwarding | ternary('yes', 'no') }}
-      AllowTcpForwarding {{ iac__bootstrap__ssh_settings__allow_tcp_forwarding | ternary('yes', 'no') }}
-      AllowAgentForwarding {{ iac__bootstrap__ssh_settings__allow_agent_forwarding | ternary('yes', 'no') }}
-      AllowStreamLocalForwarding {{ iac__bootstrap__ssh_settings__allow_stream_local_forwarding | ternary('yes', 'no') }}
-      GatewayPorts {{ iac__bootstrap__ssh_settings__gateway_ports | ternary('yes', 'no') }}
-      PermitUserEnvironment {{ iac__bootstrap__ssh_settings__permit_user_environment_variables | ternary('yes', 'no') }}
-      PermitTTY {{ iac__bootstrap__ssh_settings__permit_tty | ternary('yes', 'no') }}
-      
-      # =============================================================================
-      # Logging
-      # =============================================================================
-      LogLevel {{ iac__bootstrap__ssh_settings__log_level }}
-      
-      # =============================================================================
-      # Banners and Messages
-      # =============================================================================
-      Banner {{ iac__bootstrap__ssh_settings__banner }}
-      PrintMotd {{ iac__bootstrap__ssh_settings__print_motd_after_login | ternary('yes', 'no') }}
-      PrintLastLog {{ iac__bootstrap__ssh_settings__print_last_log_after_login | ternary('yes', 'no') }}
-      
-      # =============================================================================
-      # Network Settings
-      # =============================================================================
-      AddressFamily {{ iac__bootstrap__ssh_settings__address_family }}
-      Compression {{ iac__bootstrap__ssh_settings__compression }}
-      UseDNS {{ iac__bootstrap__ssh_settings__use_dns_for_client_verification | ternary('yes', 'no') }}
-      StrictModes {{ iac__bootstrap__ssh_settings__strict_modes | ternary('yes', 'no') }}
-      
-      {% if iac__bootstrap__ssh_settings__strong_crypto %}
-      # =============================================================================
-      # Cryptography (Modern algorithms only)
-      # =============================================================================
-      Ciphers {{ iac__bootstrap__ssh_settings__ciphers | join(',') }}
-      MACs {{ iac__bootstrap__ssh_settings__macs | join(',') }}
-      KexAlgorithms {{ iac__bootstrap__ssh_settings__kex_algorithms | join(',') }}
-      HostKeyAlgorithms {{ iac__bootstrap__ssh_settings__host_key_algorithms | join(',') }}
-      {% endif %}
-      
-      {% if iac__bootstrap__ssh_settings__allowed_users | length > 0 %}
-      # =============================================================================
-      # User Restrictions
-      # =============================================================================
-      AllowUsers {{ iac__bootstrap__ssh_settings__allowed_users | join(' ') }}
-      {% endif %}
-      {% if iac__bootstrap__ssh_settings__allowed_groups | length > 0 %}
-      AllowGroups {{ iac__bootstrap__ssh_settings__allowed_groups | join(' ') }}
-      {% endif %}
-      {% if iac__bootstrap__ssh_settings__denied_users | length > 0 %}
-      DenyUsers {{ iac__bootstrap__ssh_settings__denied_users | join(' ') }}
-      {% endif %}
-      {% if iac__bootstrap__ssh_settings__denied_groups | length > 0 %}
-      DenyGroups {{ iac__bootstrap__ssh_settings__denied_groups | join(' ') }}
-      {% endif %}
-  register: __iac__bootstrap__ssh_settings__config_changed
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [3/6] | Write SSH hardening configuration
+      ansible.builtin.copy:
+        dest: "{{ iac__bootstrap__ssh_settings__ssh_main_dropin_file_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # =============================================================================
+          # Managed by Ansible - SSH Hardening
+          # =============================================================================
+          # NOTE: Port configuration is managed separately by 11_ssh_port role
+          
+          # =============================================================================
+          # Authentication
+          # =============================================================================
+          PubkeyAuthentication {{ iac__bootstrap__ssh_settings__pubkey_auth | ternary('yes', 'no') }}
+          PermitRootLogin {{ iac__bootstrap__ssh_settings__permit_root_login }}
+          PasswordAuthentication {{ iac__bootstrap__ssh_settings__password_auth | ternary('yes', 'no') }}
+          PermitEmptyPasswords {{ iac__bootstrap__ssh_settings__permit_empty_passwords | ternary('yes', 'no') }}
+          {% if not iac__bootstrap__ssh_settings__password_auth %}
+          KbdInteractiveAuthentication no
+          ChallengeResponseAuthentication no
+          AuthenticationMethods publickey
+          {% endif %}
+          
+          # Authentication limits
+          MaxAuthTries {{ iac__bootstrap__ssh_settings__max_auth_tries }}
+          LoginGraceTime {{ iac__bootstrap__ssh_settings__login_grace_time }}
+          
+          # =============================================================================
+          # Session Security
+          # =============================================================================
+          ClientAliveInterval {{ iac__bootstrap__ssh_settings__client_alive_interval }}
+          ClientAliveCountMax {{ iac__bootstrap__ssh_settings__client_alive_count_max }}
+          MaxSessions {{ iac__bootstrap__ssh_settings__max_sessions }}
+          MaxStartups {{ iac__bootstrap__ssh_settings__max_startups }}
+          
+          # =============================================================================
+          # Feature Restrictions
+          # =============================================================================
+          X11Forwarding {{ iac__bootstrap__ssh_settings__x11_forwarding | ternary('yes', 'no') }}
+          AllowTcpForwarding {{ iac__bootstrap__ssh_settings__allow_tcp_forwarding | ternary('yes', 'no') }}
+          AllowAgentForwarding {{ iac__bootstrap__ssh_settings__allow_agent_forwarding | ternary('yes', 'no') }}
+          AllowStreamLocalForwarding {{ iac__bootstrap__ssh_settings__allow_stream_local_forwarding | ternary('yes', 'no') }}
+          GatewayPorts {{ iac__bootstrap__ssh_settings__gateway_ports | ternary('yes', 'no') }}
+          PermitUserEnvironment {{ iac__bootstrap__ssh_settings__permit_user_environment_variables | ternary('yes', 'no') }}
+          PermitTTY {{ iac__bootstrap__ssh_settings__permit_tty | ternary('yes', 'no') }}
+          
+          # =============================================================================
+          # Logging
+          # =============================================================================
+          LogLevel {{ iac__bootstrap__ssh_settings__log_level }}
+          
+          # =============================================================================
+          # Banners and Messages
+          # =============================================================================
+          Banner {{ iac__bootstrap__ssh_settings__banner }}
+          PrintMotd {{ iac__bootstrap__ssh_settings__print_motd_after_login | ternary('yes', 'no') }}
+          PrintLastLog {{ iac__bootstrap__ssh_settings__print_last_log_after_login | ternary('yes', 'no') }}
+          
+          # =============================================================================
+          # Network Settings
+          # =============================================================================
+          AddressFamily {{ iac__bootstrap__ssh_settings__address_family }}
+          Compression {{ iac__bootstrap__ssh_settings__compression }}
+          UseDNS {{ iac__bootstrap__ssh_settings__use_dns_for_client_verification | ternary('yes', 'no') }}
+          StrictModes {{ iac__bootstrap__ssh_settings__strict_modes | ternary('yes', 'no') }}
+          
+          {% if iac__bootstrap__ssh_settings__strong_crypto %}
+          # =============================================================================
+          # Cryptography (Modern algorithms only)
+          # =============================================================================
+          Ciphers {{ iac__bootstrap__ssh_settings__ciphers | join(',') }}
+          MACs {{ iac__bootstrap__ssh_settings__macs | join(',') }}
+          KexAlgorithms {{ iac__bootstrap__ssh_settings__kex_algorithms | join(',') }}
+          HostKeyAlgorithms {{ iac__bootstrap__ssh_settings__host_key_algorithms | join(',') }}
+          {% endif %}
+          
+          {% if iac__bootstrap__ssh_settings__allowed_users | length > 0 %}
+          # =============================================================================
+          # User Restrictions
+          # =============================================================================
+          AllowUsers {{ iac__bootstrap__ssh_settings__allowed_users | join(' ') }}
+          {% endif %}
+          {% if iac__bootstrap__ssh_settings__allowed_groups | length > 0 %}
+          AllowGroups {{ iac__bootstrap__ssh_settings__allowed_groups | join(' ') }}
+          {% endif %}
+          {% if iac__bootstrap__ssh_settings__denied_users | length > 0 %}
+          DenyUsers {{ iac__bootstrap__ssh_settings__denied_users | join(' ') }}
+          {% endif %}
+          {% if iac__bootstrap__ssh_settings__denied_groups | length > 0 %}
+          DenyGroups {{ iac__bootstrap__ssh_settings__denied_groups | join(' ') }}
+          {% endif %}
+      register: __iac__bootstrap__ssh_settings__config_changed
 
-# -----------------------------------------------------------------------------
-# Validate Configuration
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Validate Configuration
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [4/6] | Validate SSH configuration
-  ansible.builtin.command: sshd -t
-  register: __iac__bootstrap__ssh_settings__sshd_test
-  changed_when: false
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [4/6] | Validate SSH configuration
+      ansible.builtin.command: sshd -t
+      register: __iac__bootstrap__ssh_settings__sshd_test
+      changed_when: false
 
-# -----------------------------------------------------------------------------
-# Apply Configuration
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Apply Configuration
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [5/6] | Restart SSH service
-  ansible.builtin.service:
-    name: "{{ iac__bootstrap__ssh_settings__service_name }}"
-    state: restarted
-  when: __iac__bootstrap__ssh_settings__config_changed.changed
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [5/6] | Restart SSH service
+      ansible.builtin.service:
+        name: "{{ iac__bootstrap__ssh_settings__service_name }}"
+        state: restarted
+      when: __iac__bootstrap__ssh_settings__config_changed.changed
 
-- name: Bootstrap | SSH Settings (2/4) | Main Tasks [6/6] | Ensure SSH service is enabled
-  ansible.builtin.service:
-    name: "{{ iac__bootstrap__ssh_settings__service_name }}"
-    enabled: true
+    - name: Bootstrap | SSH Settings (2/4) | Main Tasks [6/6] | Ensure SSH service is enabled
+      ansible.builtin.service:
+        name: "{{ iac__bootstrap__ssh_settings__service_name }}"
+        enabled: true
 
-# =============================================================================
-# Section 3/4: Result Validation
-# =============================================================================
+    # =============================================================================
+    # Section 3/4: Result Validation
+    # =============================================================================
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [1/8] | Wait for SSH service to stabilize
-  ansible.builtin.pause:
-    seconds: 10
-  when: __iac__bootstrap__ssh_settings__config_changed.changed
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [1/8] | Wait for SSH service to stabilize
+      ansible.builtin.pause:
+        seconds: 10
+      when: __iac__bootstrap__ssh_settings__config_changed.changed
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [2/8] | Check initial SSH service state
-  ansible.builtin.service_facts:
-  register: __iac__bootstrap__ssh_settings__initial_state
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [2/8] | Check initial SSH service state
+      ansible.builtin.service_facts:
+      register: __iac__bootstrap__ssh_settings__initial_state
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [3/8] | Force start SSH if stopped
-  ansible.builtin.service:
-    name: "{{ iac__bootstrap__ssh_settings__service_name }}"
-    state: started
-  when: >
-    __iac__bootstrap__ssh_settings__initial_state.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state != 'running'
-  register: __iac__bootstrap__ssh_settings__force_start
-  ignore_errors: true
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [3/8] | Force start SSH if stopped
+      ansible.builtin.service:
+        name: "{{ iac__bootstrap__ssh_settings__service_name }}"
+        state: started
+      when: >
+        __iac__bootstrap__ssh_settings__initial_state.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state != 'running'
+      register: __iac__bootstrap__ssh_settings__force_start
+      ignore_errors: true
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [4/8] | Wait after force start
-  ansible.builtin.pause:
-    seconds: 10
-  when: __iac__bootstrap__ssh_settings__force_start is changed
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [4/8] | Wait after force start
+      ansible.builtin.pause:
+        seconds: 10
+      when: __iac__bootstrap__ssh_settings__force_start is changed
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [5/8] | Verify SSH is running
-  ansible.builtin.service_facts:
-  register: __iac__bootstrap__ssh_settings__services
-  retries: 10
-  delay: 3
-  until: >
-    __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state == 'running'
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [5/8] | Verify SSH is running
+      ansible.builtin.service_facts:
+      register: __iac__bootstrap__ssh_settings__services
+      retries: 10
+      delay: 3
+      until: >
+        __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state == 'running'
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [6/8] | Get SSH service logs on failure
-  ansible.builtin.command: journalctl -u {{ iac__bootstrap__ssh_settings__service_name }} -n 50 --no-pager
-  register: __iac__bootstrap__ssh_settings__logs
-  changed_when: false
-  when: >
-    __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state != 'running'
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [6/8] | Get SSH service logs on failure
+      ansible.builtin.command: journalctl -u {{ iac__bootstrap__ssh_settings__service_name }} -n 50 --no-pager
+      register: __iac__bootstrap__ssh_settings__logs
+      changed_when: false
+      when: >
+        __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state != 'running'
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [7/8] | Display SSH logs on failure
-  ansible.builtin.debug:
-    msg: "{{ __iac__bootstrap__ssh_settings__logs.stdout_lines }}"
-  when: __iac__bootstrap__ssh_settings__logs is defined and __iac__bootstrap__ssh_settings__logs.stdout_lines is defined
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [7/8] | Display SSH logs on failure
+      ansible.builtin.debug:
+        msg: "{{ __iac__bootstrap__ssh_settings__logs.stdout_lines }}"
+      when: __iac__bootstrap__ssh_settings__logs is defined and __iac__bootstrap__ssh_settings__logs.stdout_lines is defined
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [8/8] | Assert SSH is active
-  ansible.builtin.assert:
-    that:
-      - __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state == 'running'
-    fail_msg: "SSH service is not running after configuration. Check logs above for details."
-    quiet: true
-  changed_when: false
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [8/8] | Assert SSH is active
+      ansible.builtin.assert:
+        that:
+          - __iac__bootstrap__ssh_settings__services.ansible_facts.services[iac__bootstrap__ssh_settings__service_name ~ '.service'].state == 'running'
+        fail_msg: "SSH service is not running after configuration. Check logs above for details."
+        quiet: true
+      changed_when: false
 
-- name: Bootstrap | SSH Settings (3/4) | Result Validation [9/9] | Test SSH connectivity
-  ansible.builtin.wait_for:
-    port: "{{ ansible_port | default(22) }}"
-    host: "{{ ansible_host | default(inventory_hostname) }}"
-    timeout: 30
-  delegate_to: localhost
-  become: false
+    - name: Bootstrap | SSH Settings (3/4) | Result Validation [9/9] | Test SSH connectivity
+      ansible.builtin.wait_for:
+        port: "{{ ansible_port | default(22) }}"
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        timeout: 30
+      delegate_to: localhost
+      become: false
 
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
 
-- name: Bootstrap | SSH Settings (4/4) | Completion Status [1/1] | Display configuration summary
-  ansible.builtin.debug:
-    msg:
-      - "  SSH settings configuration completed"
-      - "  Password auth: {{ iac__bootstrap__ssh_settings__password_auth | ternary('enabled', 'disabled') }}"
-      - "  Root login: {{ iac__bootstrap__ssh_settings__permit_root_login }}"
-      - "  Max auth tries: {{ iac__bootstrap__ssh_settings__max_auth_tries }}"
-      - "  Login grace time: {{ iac__bootstrap__ssh_settings__login_grace_time }}s"
-      - "  X11 forwarding: {{ iac__bootstrap__ssh_settings__x11_forwarding | ternary('enabled', 'disabled') }}"
-      - "  TCP forwarding: {{ iac__bootstrap__ssh_settings__allow_tcp_forwarding | ternary('enabled', 'disabled') }}"
-      - "  Strong crypto: {{ iac__bootstrap__ssh_settings__strong_crypto | ternary('enforced', 'default') }}"
-      - "  Allowed users: {{ iac__bootstrap__ssh_settings__allowed_users | join(', ') | default('all', true) }}"
+- name: Bootstrap | SSH Settings (4/4) | Completion Status | Display summary
+  when: not (iac__bootstrap__ssh_settings__skip | bool)
+  block:
+    - name: Bootstrap | SSH Settings (4/4) | Completion Status [1/1] | Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "  SSH settings configuration completed"
+          - "  Password auth: {{ iac__bootstrap__ssh_settings__password_auth | ternary('enabled', 'disabled') }}"
+          - "  Root login: {{ iac__bootstrap__ssh_settings__permit_root_login }}"
+          - "  Max auth tries: {{ iac__bootstrap__ssh_settings__max_auth_tries }}"
+          - "  Login grace time: {{ iac__bootstrap__ssh_settings__login_grace_time }}s"
+          - "  X11 forwarding: {{ iac__bootstrap__ssh_settings__x11_forwarding | ternary('enabled', 'disabled') }}"
+          - "  TCP forwarding: {{ iac__bootstrap__ssh_settings__allow_tcp_forwarding | ternary('enabled', 'disabled') }}"
+          - "  Strong crypto: {{ iac__bootstrap__ssh_settings__strong_crypto | ternary('enforced', 'default') }}"
+          - "  Allowed users: {{ iac__bootstrap__ssh_settings__allowed_users | join(', ') | default('all', true) }}"

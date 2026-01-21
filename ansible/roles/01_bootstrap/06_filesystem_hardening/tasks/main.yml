@@ -7,217 +7,221 @@
 # =============================================================================
 
 # =============================================================================
-# Section 0/4: Preconditions
-# =============================================================================
-
-- name: Bootstrap | Filesystem Hardening (0/4) | Preconditions [1/1] | Skip role if disabled
-  ansible.builtin.meta: end_host
-  when: iac__bootstrap__filesystem_hardening__skip | bool
-
-# =============================================================================
 # Section 1/4: Validation
 # =============================================================================
 
-- name: Bootstrap | Filesystem Hardening (1/4) | Validation [1/1] | Assert mount options list defined
-  ansible.builtin.assert:
-    that:
-      - iac__bootstrap__filesystem_hardening__mount_options is defined
-      - iac__bootstrap__filesystem_hardening__mount_options is iterable
-    fail_msg: "iac__bootstrap__filesystem_hardening__mount_options must be defined and iterable"
-    quiet: true
-  changed_when: false
+- name: Bootstrap | Filesystem Hardening (1/4) | Validation | Validate inputs
+  when: not (iac__bootstrap__filesystem_hardening__skip | bool)
+  block:
+    - name: Bootstrap | Filesystem Hardening (1/4) | Validation [1/1] | Assert mount options list defined
+      ansible.builtin.assert:
+        that:
+          - iac__bootstrap__filesystem_hardening__mount_options is defined
+          - iac__bootstrap__filesystem_hardening__mount_options is iterable
+        fail_msg: "iac__bootstrap__filesystem_hardening__mount_options must be defined and iterable"
+        quiet: true
+      changed_when: false
 
 # =============================================================================
 # Section 2/4: Main Tasks
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Mount Point Discovery
-# -----------------------------------------------------------------------------
+- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks | Harden filesystem
+  when: not (iac__bootstrap__filesystem_hardening__skip | bool)
+  block:
+    # -------------------------------------------------------------------------
+    # Mount Point Discovery
+    # -------------------------------------------------------------------------
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [1/11] | Get current mount points
-  ansible.builtin.command: findmnt --noheadings --output TARGET,OPTIONS --raw
-  register: __iac__bootstrap__filesystem_hardening__mounts
-  changed_when: false
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [1/11] | Get current mount points
+      ansible.builtin.command: findmnt --noheadings --output TARGET,OPTIONS --raw
+      register: __iac__bootstrap__filesystem_hardening__mounts
+      changed_when: false
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [2/11] | Parse mount points into dict
-  ansible.builtin.set_fact:
-    __iac__bootstrap__filesystem_hardening__mount_dict: >-
-      {{
-        __iac__bootstrap__filesystem_hardening__mount_dict | default({}) | combine({
-          item.split()[0]: item.split()[1] | default('')
-        })
-      }}
-  loop: "{{ __iac__bootstrap__filesystem_hardening__mounts.stdout_lines }}"
-  when: item.split() | length >= 1
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [2/11] | Parse mount points into dict
+      ansible.builtin.set_fact:
+        __iac__bootstrap__filesystem_hardening__mount_dict: >-
+          {{
+            __iac__bootstrap__filesystem_hardening__mount_dict | default({}) | combine({
+              item.split()[0]: item.split()[1] | default('')
+            })
+          }}
+      loop: "{{ __iac__bootstrap__filesystem_hardening__mounts.stdout_lines }}"
+      when: item.split() | length >= 1
 
-# -----------------------------------------------------------------------------
-# Mount Options Hardening (via systemd mount units or fstab)
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Mount Options Hardening (via systemd mount units or fstab)
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [3/11] | Check if mount point exists
-  ansible.builtin.stat:
-    path: "{{ item.mount_point }}"
-  loop: "{{ iac__bootstrap__filesystem_hardening__mount_options | selectattr('enabled', 'equalto', true) | list }}"
-  loop_control:
-    label: "{{ item.mount_point }}"
-  register: __iac__bootstrap__filesystem_hardening__mount_stats
-  when: iac__bootstrap__filesystem_hardening__harden_mounts | bool
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [3/11] | Check if mount point exists
+      ansible.builtin.stat:
+        path: "{{ item.mount_point }}"
+      loop: "{{ iac__bootstrap__filesystem_hardening__mount_options | selectattr('enabled', 'equalto', true) | list }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+      register: __iac__bootstrap__filesystem_hardening__mount_stats
+      when: iac__bootstrap__filesystem_hardening__harden_mounts | bool
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [4/11] | Remount with hardened options
-  ansible.posix.mount:
-    path: "{{ item.item.mount_point }}"
-    state: remounted
-    opts: "{{ item.item.options }}"
-  loop: "{{ __iac__bootstrap__filesystem_hardening__mount_stats.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.mount_point }}"
-  when:
-    - iac__bootstrap__filesystem_hardening__harden_mounts | bool
-    - item.stat is defined
-    - item.stat.exists | default(false)
-    - item.item.mount_point in (__iac__bootstrap__filesystem_hardening__mount_dict | default({}))
-  failed_when: false
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [4/11] | Remount with hardened options
+      ansible.posix.mount:
+        path: "{{ item.item.mount_point }}"
+        state: remounted
+        opts: "{{ item.item.options }}"
+      loop: "{{ __iac__bootstrap__filesystem_hardening__mount_stats.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.mount_point }}"
+      when:
+        - iac__bootstrap__filesystem_hardening__harden_mounts | bool
+        - item.stat is defined
+        - item.stat.exists | default(false)
+        - item.item.mount_point in (__iac__bootstrap__filesystem_hardening__mount_dict | default({}))
+      failed_when: false
 
-# -----------------------------------------------------------------------------
-# Sensitive File Permissions
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Sensitive File Permissions
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [5/11] | Check sensitive file existence
-  ansible.builtin.stat:
-    path: "{{ item.path }}"
-  loop: "{{ iac__bootstrap__filesystem_hardening__sensitive_files }}"
-  loop_control:
-    label: "{{ item.path }}"
-  register: __iac__bootstrap__filesystem_hardening__file_stats
-  when: iac__bootstrap__filesystem_hardening__secure_permissions | bool
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [5/11] | Check sensitive file existence
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+      loop: "{{ iac__bootstrap__filesystem_hardening__sensitive_files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: __iac__bootstrap__filesystem_hardening__file_stats
+      when: iac__bootstrap__filesystem_hardening__secure_permissions | bool
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [6/11] | Set restrictive permissions on files
-  ansible.builtin.file:
-    path: "{{ item.item.path }}"
-    mode: "{{ item.item.mode }}"
-    owner: "{{ item.item.owner }}"
-    group: "{{ item.item.group }}"
-  loop: "{{ __iac__bootstrap__filesystem_hardening__file_stats.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.path }}"
-  when:
-    - iac__bootstrap__filesystem_hardening__secure_permissions | bool
-    - item.stat is defined
-    - item.stat.exists | default(false)
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [6/11] | Set restrictive permissions on files
+      ansible.builtin.file:
+        path: "{{ item.item.path }}"
+        mode: "{{ item.item.mode }}"
+        owner: "{{ item.item.owner }}"
+        group: "{{ item.item.group }}"
+      loop: "{{ __iac__bootstrap__filesystem_hardening__file_stats.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+      when:
+        - iac__bootstrap__filesystem_hardening__secure_permissions | bool
+        - item.stat is defined
+        - item.stat.exists | default(false)
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [7/11] | Set restrictive permissions on directories
-  ansible.builtin.file:
-    path: "{{ item.item.path }}"
-    mode: "{{ item.item.mode }}"
-    owner: "{{ item.item.owner }}"
-    group: "{{ item.item.group }}"
-    state: directory
-  loop: "{{ __iac__bootstrap__filesystem_hardening__file_stats.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.path }}"
-  when:
-    - iac__bootstrap__filesystem_hardening__secure_permissions | bool
-    - item.stat is defined
-    - item.stat.exists | default(false)
-    - item.stat.isdir | default(false)
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [7/11] | Set restrictive permissions on directories
+      ansible.builtin.file:
+        path: "{{ item.item.path }}"
+        mode: "{{ item.item.mode }}"
+        owner: "{{ item.item.owner }}"
+        group: "{{ item.item.group }}"
+        state: directory
+      loop: "{{ __iac__bootstrap__filesystem_hardening__file_stats.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+      when:
+        - iac__bootstrap__filesystem_hardening__secure_permissions | bool
+        - item.stat is defined
+        - item.stat.exists | default(false)
+        - item.stat.isdir | default(false)
 
-# -----------------------------------------------------------------------------
-# Sticky Bit on World-Writable Directories
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Sticky Bit on World-Writable Directories
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [8/11] | Ensure sticky bit on world-writable dirs
-  ansible.builtin.file:
-    path: "{{ item }}"
-    mode: "o+t"
-    state: directory
-  loop: "{{ iac__bootstrap__filesystem_hardening__sticky_bit_dirs }}"
-  when: iac__bootstrap__filesystem_hardening__sticky_bit | bool
-  failed_when: false
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [8/11] | Ensure sticky bit on world-writable dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: "o+t"
+        state: directory
+      loop: "{{ iac__bootstrap__filesystem_hardening__sticky_bit_dirs }}"
+      when: iac__bootstrap__filesystem_hardening__sticky_bit | bool
+      failed_when: false
 
-# -----------------------------------------------------------------------------
-# Disable Uncommon Filesystems
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Disable Uncommon Filesystems
+    # -----------------------------------------------------------------------------
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [9/11] | Create modprobe config to disable filesystems
-  ansible.builtin.copy:
-    dest: "{{ iac__bootstrap__filesystem_hardening__modprobe_config }}"
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # =============================================================================
-      # Managed by Ansible - Filesystem Hardening
-      # =============================================================================
-      # Disable mounting of uncommon/dangerous filesystems
-      # These are rarely needed on production servers and can be attack vectors
-      # =============================================================================
-      
-      {% for fs in iac__bootstrap__filesystem_hardening__disabled_filesystems %}
-      # {{ fs }} - disabled for security
-      install {{ fs }} /bin/false
-      {% endfor %}
-  when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [9/11] | Create modprobe config to disable filesystems
+      ansible.builtin.copy:
+        dest: "{{ iac__bootstrap__filesystem_hardening__modprobe_config }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # =============================================================================
+          # Managed by Ansible - Filesystem Hardening
+          # =============================================================================
+          # Disable mounting of uncommon/dangerous filesystems
+          # These are rarely needed on production servers and can be attack vectors
+          # =============================================================================
+          
+          {% for fs in iac__bootstrap__filesystem_hardening__disabled_filesystems %}
+          # {{ fs }} - disabled for security
+          install {{ fs }} /bin/false
+          {% endfor %}
+      when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [10/11] | Blacklist disabled filesystems
-  ansible.builtin.lineinfile:
-    path: /etc/modprobe.d/blacklist.conf
-    line: "blacklist {{ item }}"
-    create: true
-    owner: root
-    group: root
-    mode: "0644"
-  loop: "{{ iac__bootstrap__filesystem_hardening__disabled_filesystems }}"
-  when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [10/11] | Blacklist disabled filesystems
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        line: "blacklist {{ item }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ iac__bootstrap__filesystem_hardening__disabled_filesystems }}"
+      when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
 
-- name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [11/11] | Unload disabled filesystem modules
-  ansible.builtin.command: modprobe -r {{ item }}
-  loop: "{{ iac__bootstrap__filesystem_hardening__disabled_filesystems }}"
-  when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
-  register: __iac__bootstrap__filesystem_hardening__modprobe_result
-  changed_when: __iac__bootstrap__filesystem_hardening__modprobe_result.rc == 0
-  failed_when: false
+    - name: Bootstrap | Filesystem Hardening (2/4) | Main Tasks [11/11] | Unload disabled filesystem modules
+      ansible.builtin.command: modprobe -r {{ item }}
+      loop: "{{ iac__bootstrap__filesystem_hardening__disabled_filesystems }}"
+      when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
+      register: __iac__bootstrap__filesystem_hardening__modprobe_result
+      changed_when: __iac__bootstrap__filesystem_hardening__modprobe_result.rc == 0
+      failed_when: false
 
 # =============================================================================
 # Section 3/4: Result Validation
 # =============================================================================
 
-- name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [1/3] | Verify /tmp has sticky bit
-  ansible.builtin.stat:
-    path: /tmp
-  register: __iac__bootstrap__filesystem_hardening__tmp_stat
-  failed_when:
-    - iac__bootstrap__filesystem_hardening__sticky_bit | bool
-    - not (__iac__bootstrap__filesystem_hardening__tmp_stat.stat.mode | default('') | regex_search('1[0-7]{3}$'))
-  when: iac__bootstrap__filesystem_hardening__sticky_bit | bool
+- name: Bootstrap | Filesystem Hardening (3/4) | Result Validation | Verify configuration
+  when: not (iac__bootstrap__filesystem_hardening__skip | bool)
+  block:
+    - name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [1/3] | Verify /tmp has sticky bit
+      ansible.builtin.stat:
+        path: /tmp
+      register: __iac__bootstrap__filesystem_hardening__tmp_stat
+      failed_when:
+        - iac__bootstrap__filesystem_hardening__sticky_bit | bool
+        - not (__iac__bootstrap__filesystem_hardening__tmp_stat.stat.mode | default('') | regex_search('1[0-7]{3}$'))
+      when: iac__bootstrap__filesystem_hardening__sticky_bit | bool
 
-- name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [2/3] | Verify /etc/shadow permissions
-  ansible.builtin.stat:
-    path: /etc/shadow
-  register: __iac__bootstrap__filesystem_hardening__shadow_stat
-  failed_when:
-    - iac__bootstrap__filesystem_hardening__secure_permissions | bool
-    - __iac__bootstrap__filesystem_hardening__shadow_stat.stat.exists | default(false)
-    - __iac__bootstrap__filesystem_hardening__shadow_stat.stat.mode != '0640'
+    - name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [2/3] | Verify /etc/shadow permissions
+      ansible.builtin.stat:
+        path: /etc/shadow
+      register: __iac__bootstrap__filesystem_hardening__shadow_stat
+      failed_when:
+        - iac__bootstrap__filesystem_hardening__secure_permissions | bool
+        - __iac__bootstrap__filesystem_hardening__shadow_stat.stat.exists | default(false)
+        - __iac__bootstrap__filesystem_hardening__shadow_stat.stat.mode != '0640'
 
-- name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [3/3] | Verify modprobe config exists
-  ansible.builtin.stat:
-    path: "{{ iac__bootstrap__filesystem_hardening__modprobe_config }}"
-  register: __iac__bootstrap__filesystem_hardening__modprobe_stat
-  failed_when:
-    - iac__bootstrap__filesystem_hardening__disable_filesystems | bool
-    - not __iac__bootstrap__filesystem_hardening__modprobe_stat.stat.exists
-  when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
+    - name: Bootstrap | Filesystem Hardening (3/4) | Result Validation [3/3] | Verify modprobe config exists
+      ansible.builtin.stat:
+        path: "{{ iac__bootstrap__filesystem_hardening__modprobe_config }}"
+      register: __iac__bootstrap__filesystem_hardening__modprobe_stat
+      failed_when:
+        - iac__bootstrap__filesystem_hardening__disable_filesystems | bool
+        - not __iac__bootstrap__filesystem_hardening__modprobe_stat.stat.exists
+      when: iac__bootstrap__filesystem_hardening__disable_filesystems | bool
 
 # =============================================================================
 # Section 4/4: Completion Status
 # =============================================================================
 
-- name: Bootstrap | Filesystem Hardening (4/4) | Completion Status [1/1] | Display configuration summary
-  ansible.builtin.debug:
-    msg:
-      - "  Filesystem hardening completed successfully"
-      - "  Mount hardening: {{ iac__bootstrap__filesystem_hardening__harden_mounts | bool }}"
-      - "  Secure permissions: {{ iac__bootstrap__filesystem_hardening__secure_permissions | bool }}"
-      - "  Sticky bit enforcement: {{ iac__bootstrap__filesystem_hardening__sticky_bit | bool }}"
-      - "  Disabled filesystems: {{ iac__bootstrap__filesystem_hardening__disabled_filesystems | length if iac__bootstrap__filesystem_hardening__disable_filesystems else 0 }}"
+- name: Bootstrap | Filesystem Hardening (4/4) | Completion Status | Display summary
+  when: not (iac__bootstrap__filesystem_hardening__skip | bool)
+  block:
+    - name: Bootstrap | Filesystem Hardening (4/4) | Completion Status [1/1] | Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "  Filesystem hardening completed successfully"
+          - "  Mount hardening: {{ iac__bootstrap__filesystem_hardening__harden_mounts | bool }}"
+          - "  Secure permissions: {{ iac__bootstrap__filesystem_hardening__secure_permissions | bool }}"
+          - "  Sticky bit enforcement: {{ iac__bootstrap__filesystem_hardening__sticky_bit | bool }}"
+          - "  Disabled filesystems: {{ iac__bootstrap__filesystem_hardening__disabled_filesystems | length if iac__bootstrap__filesystem_hardening__disable_filesystems else 0 }}"
