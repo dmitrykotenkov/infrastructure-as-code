@@ -1,0 +1,73 @@
+# =============================================================================
+# dnsmasq Configuration - Infrastructure DNS
+# =============================================================================
+# Managed by Ansible - Do not edit manually
+# Provides local DNS caching and wildcard resolution
+# Generated for: {{ inventory_hostname }}
+
+# =============================================================================
+# Listen Addresses
+# =============================================================================
+# Listen on localhost (for host system)
+listen-address=127.0.0.1
+
+{% if iac__bootstrap__dns__additional_listen_addresses | default([]) | length > 0 %}
+# Additional listen addresses
+{% for addr in iac__bootstrap__dns__additional_listen_addresses %}
+listen-address={{ addr }}
+{% endfor %}
+{% endif %}
+
+# Dynamic binding - allows dnsmasq to start even if listen addresses don't exist yet
+bind-dynamic
+
+# Port configuration
+port={{ iac__bootstrap__dns__port }}
+
+# =============================================================================
+# Cache Settings
+# =============================================================================
+# DNS cache size (number of entries)
+cache-size={{ iac__bootstrap__dns__cache_size }}
+
+# Maximum cache TTL (seconds) - limits caching regardless of upstream TTL
+max-cache-ttl={{ iac__bootstrap__dns__max_cache_ttl }}
+
+# =============================================================================
+# Upstream DNS Configuration
+# =============================================================================
+# Don't read /etc/resolv.conf (we manage DNS servers explicitly)
+no-resolv
+
+# Don't poll /etc/resolv.conf for changes
+no-poll
+
+# Don't read /etc/hosts (we manage entries via 01-local-hosts.conf)
+no-hosts
+
+# Upstream DNS servers for non-local queries
+{% for server in iac__bootstrap__dns__upstream_servers %}
+server={{ server }}
+{% endfor %}
+
+# =============================================================================
+# Domain Settings
+# =============================================================================
+# Don't forward short names (without dots) to upstream
+domain-needed
+
+# Don't forward reverse lookups for private ranges to upstream
+bogus-priv
+
+{% if iac__bootstrap__dns__internal_domain | default('') | length > 0 %}
+# Local domain configuration
+local=/{{ iac__bootstrap__dns__internal_domain }}/
+domain={{ iac__bootstrap__dns__internal_domain }}
+expand-hosts
+{% endif %}
+
+# =============================================================================
+# Logging (uncomment for debugging)
+# =============================================================================
+# log-queries
+# log-facility=/var/log/dnsmasq.log

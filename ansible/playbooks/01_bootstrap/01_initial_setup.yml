@@ -220,3 +220,8 @@
     - name: Bootstrap | Swap Setup (12/-) | Main Tasks [3/-] | 16 Swap Setup
       ansible.builtin.include_role:
         name: 01_bootstrap/14_swap
+    - name: Bootstrap | DNS Setup (12/-) | Main Tasks [4/-] | 17 DNS Setup
+      ansible.builtin.include_role:
+        name: 01_bootstrap/15_dns
+      vars:
+        iac__bootstrap__dns__inventory_group: bootstrap_targets

@@ -1,0 +1,27 @@
+# =============================================================================
+# dnsmasq Local Hosts - Infrastructure DNS
+# =============================================================================
+# Managed by Ansible - Do not edit manually
+# Wildcard DNS entries for infrastructure hosts
+#
+# Using 'address=' directive for wildcard support:
+# address=/hostname/IP matches hostname AND *.hostname
+#
+# Generated for: {{ inventory_hostname }}
+
+{% if __iac__bootstrap__dns__all_entries | length > 0 %}
+# =============================================================================
+# DNS Entries ({{ __iac__bootstrap__dns__all_entries | length }} total)
+# =============================================================================
+{% for entry in __iac__bootstrap__dns__all_entries %}
+# {{ entry.pattern }} → {{ entry.ip }}
+address=/{{ entry.pattern }}/{{ entry.ip }}
+{% endfor %}
+{% else %}
+# =============================================================================
+# No DNS entries configured
+# =============================================================================
+# To add entries, either:
+# 1. Set iac__bootstrap__dns__inventory_group to an inventory group name
+# 2. Add entries to iac__bootstrap__dns__custom_entries
+{% endif %}

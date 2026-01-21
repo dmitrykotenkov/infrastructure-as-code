@@ -1,0 +1,51 @@
+---
+# =============================================================================
+# Optional variables (can be overridden at playbook or inventory level)
+# =============================================================================
+iac__bootstrap__dns__skip: false
+
+iac__bootstrap__dns__remove: false
+
+# Upstream DNS servers for non-local queries
+iac__bootstrap__dns__upstream_servers:
+  - "8.8.8.8"
+  - "8.8.4.4"
+  - "1.1.1.1"
+
+# Internal domain suffix for infrastructure hosts
+# Wildcards work on both hostname and hostname.domain
+# Example: *.node1 AND *.node1.internal both resolve
+iac__bootstrap__dns__internal_domain: "iacinternal"
+
+# Ansible inventory group to auto-add as DNS entries
+# All hosts in this group will have their hostnames resolve to their ansible_host IP
+# Set to ~ (null) to disable auto-discovery (only custom_entries will be used)
+# Example: "infrastructure" to add all hosts from [infrastructure] group
+iac__bootstrap__dns__inventory_group: ~
+
+# Additional custom DNS entries
+# Format: list of {pattern: "pattern", ip: "x.x.x.x"}
+# Pattern supports wildcards via dnsmasq address= directive
+# Example:
+#   iac__bootstrap__dns__custom_entries:
+#     - pattern: "myservice.local"
+#       ip: "192.168.1.100"
+#     - pattern: "api.internal"
+#       ip: "10.0.0.50"
+iac__bootstrap__dns__custom_entries: []
+
+iac__bootstrap__dns__port: "{{ iac__common__dns_port }}"
+# DNS cache size (number of entries)
+iac__bootstrap__dns__cache_size: 1000
+# Maximum cache TTL in seconds
+# Limits caching regardless of upstream TTL
+# Low values (10s) recommended if using with Docker container names
+iac__bootstrap__dns__max_cache_ttl: 300
+# Additional listen addresses (e.g., Docker bridge gateway)
+# Default: only 127.0.0.1
+iac__bootstrap__dns__additional_listen_addresses: []
+
+# Backup resolv.conf before modifying
+iac__bootstrap__dns__backup_resolv_conf: true
+# Prevent DHCP from overwriting resolv.conf
+iac__bootstrap__dns__prevent_dhcp_override: true
