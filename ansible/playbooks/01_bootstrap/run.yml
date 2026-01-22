@@ -10,12 +10,8 @@
 
 - name: Bootstrap | Initial Setup (1/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'initial_setup']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/initial_ssh_connection.yml"
   pre_tasks:
@@ -52,12 +48,8 @@
 
 - name: Bootstrap | User Setup (2/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'user_setup']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/initial_ssh_connection.yml"
   pre_tasks:
@@ -92,16 +84,10 @@
 
 - name: Bootstrap | SSH Setup (4/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'ssh_setup']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
-    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
-    ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
-    ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
-    ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+  vars_files:
+    - "{{ playbook_dir }}/vars/migration_ssh_connection.yml"
   pre_tasks:
     - name: Bootstrap | Initial Setup (4/-) | Pre Tasks [1/1] | Refresh SSH connection
       ansible.builtin.include_role:
@@ -111,24 +97,12 @@
       ansible.builtin.include_role:
         name: 01_bootstrap/10_ssh_settings
 
-- name: Bootstrap | Initial Setup (5/-) | Post SSH Setup Preflight
-  ansible.builtin.import_playbook:  "{{ playbook_dir }}/../_shared/_preflight.yml"
-  tags: ['bootstrap', 'post_ssh_setup_preflight']
-  vars:
-    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
-
 - name: Bootstrap | Custom SSH Port Add (6/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'custom_ssh_port_add']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
-    ansible_port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
-    ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
-    ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
-    ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+  vars_files:
+    - "{{ playbook_dir }}/vars/migration_ssh_connection.yml"
   pre_tasks:
     - name: Bootstrap | Initial Setup (6/-) | Pre Tasks [1/1] | Refresh SSH connection
       ansible.builtin.include_role:
@@ -146,12 +120,8 @@
 
 - name: Bootstrap | Initial SSH Port Remove (8/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'initial_ssh_port_remove']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/ssh_connection.yml"
   pre_tasks:
@@ -165,18 +135,10 @@
       vars:
         iac__shared__ssh_port_remove__port: "{{ vault__initial_ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
 
-- name: Bootstrap | Initial Setup (9/-) | Post Initial SSH Port Remove Preflight
-  tags: ['bootstrap', 'post_initial_ssh_port_remove_preflight']
-  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
-
 - name: Bootstrap | Firewall (UFW) Setup (10/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'ufw_setup']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/ssh_connection.yml"
   pre_tasks:
@@ -190,18 +152,10 @@
       vars:
         iac__bootstrap__firewall__ssh_port: "{{ ansible_port }}"
 
-- name: Bootstrap | Initial Setup (11/-) | Post Firewall (UFW) Setup Preflight
-  tags: ['bootstrap', 'post_ufw_setup_preflight']
-  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
-
 - name: Bootstrap | Final Setup (12/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'final_setup']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/ssh_connection.yml"
   pre_tasks:
@@ -220,8 +174,6 @@
     - name: Bootstrap | Swap Setup (12/-) | Main Tasks [3/-] | 16 Swap Setup
       ansible.builtin.include_role:
         name: 01_bootstrap/14_swap
-      vars:
-        iac__bootstrap__swap__remove: true
     - name: Bootstrap | DNS Setup (12/-) | Main Tasks [4/-] | 17 DNS Setup
       ansible.builtin.include_role:
         name: 01_bootstrap/15_dns
@@ -231,18 +183,10 @@
       ansible.builtin.include_role:
         name: 01_bootstrap/16_process_accounting
       
-- name: Bootstrap | Initial Setup (13/-) | Post Final Setup Preflight
-  tags: ['bootstrap', 'post_final_setup_preflight']
-  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
-
 - name: Bootstrap | Verrify (14/-) | Main Tasks
   hosts: bootstrap_targets
-  gather_facts: false
   become: true
   tags: ['bootstrap', 'verify']
-  vars:
-    ansible_become: true
-    ansible_become_method: sudo
   vars_files:
     - "{{ playbook_dir }}/vars/ssh_connection.yml"
   pre_tasks:
