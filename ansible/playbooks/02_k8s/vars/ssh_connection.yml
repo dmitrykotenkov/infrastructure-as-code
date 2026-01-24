@@ -1,0 +1,7 @@
+---
+ansible_port: "{{ vault__ansible_port__list.get(inventory_hostname, iac__common__ssh_port) }}"
+ansible_user: "{{ vault__ansible_user__list.get(inventory_hostname, iac__common__ssh_user) }}"
+ansible_password: "{{ vault__ansible_user_password__list.get(inventory_hostname) }}"
+ansible_ssh_private_key_file: "{{ iac__common__ansible_ssh_private_key_file }}"
+ansible_become: true
+ansible_become_method: sudo

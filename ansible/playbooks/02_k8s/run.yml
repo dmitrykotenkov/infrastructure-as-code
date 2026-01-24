@@ -1,0 +1,18 @@
+---
+- name: K8s | Run (1/-) | Initial Preflight
+  tags: ['k8s', 'run', 'initial_preflight']
+  ansible.builtin.import_playbook: "{{ playbook_dir }}/../_shared/_preflight.yml"
+
+- name: K8s | Run (-/-) | Verify
+  hosts: bootstrap_targets
+  become: true
+  tags: ['k8s', 'run', 'verify']
+  vars_files:
+    - "{{ playbook_dir }}/vars/ssh_connection.yml"
+  pre_tasks:
+    - name: K8s | Run (-/-) | Verify [-1/-1] | Refresh SSH connection
+      ansible.builtin.include_role:
+        name: _shared/_refresh_connection
+  tasks:
+    - name: K8s | Run (-/-) | Verify [1/1] | 99 Verify
+      ansible.builtin.coimmand: echo 'Verify'
